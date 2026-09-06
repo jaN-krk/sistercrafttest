@@ -1,6 +1,6 @@
 # SisterCraft&Co mağazası
 
-20 gerçek Trendyol ürününden oluşan Türkçe/İngilizce mağaza. 37 orijinal fotoğraf, gerçek ürün fotoğraflarını değiştirmeden kullanan üç slaytlı vitrin, iki yeni AI atmosfer arka planı, arama/filtreleme, sunucuda kalıcı sepet ve kapsamlı yönetim paneli içerir. Beyaz ve koyu yeşil tasarım; blurlu sabit menü, mobil menü, kontrollü animasyonlar ve erişilebilir etkileşimlerle tamamlanmıştır.
+20 gerçek Trendyol ürününden oluşan Türkçe/İngilizce mağaza. 37 orijinal fotoğraf, ürün referanslarından oluşturulmuş üç bütünleşik AI çekimi kullanan vitrin, arama/filtreleme, sunucuda kalıcı sepet ve kapsamlı yönetim paneli içerir. Beyaz ve koyu yeşil tasarım; blurlu sabit menü, mobil menü, kontrollü animasyonlar ve erişilebilir etkileşimlerle tamamlanmıştır.
 
 ## Teslim edilen durum
 
@@ -99,7 +99,7 @@ Cloudflare D1 schema değişiklikleri `db/schema.ts` ve `drizzle/` içindedir. Y
 
 ## Görseller ve kaynaklar
 
-Orijinal 37 ürün fotoğrafı `public/products/` altındadır; baytları değiştirilmemiştir. V2 slider, `public/editorial/ritual-forest-empty-plinth.webp` ve `ritual-linen-empty-plinth.webp` adlı iki AI arka plan üzerinde gerçek fotoğrafı ayrı bir katman olarak kullanır. AI arka planlarda ürün, ambalaj veya yazı yoktur. V1 ürünlü AI sahneleri dosya geçmişi için korunur ancak mağazada kullanılmaz. Kullanıcının istemediği parıltı simgesi kaldırılmıştır.
+Orijinal 37 ürün fotoğrafı `public/products/` altındadır; katalog galerilerindeki fotoğraf baytları değiştirilmemiştir. V3 slider, `public/editorial/ritual-box-showcase-v3.webp`, `amber-noir-showcase-v3.webp` ve `incense-bundles-showcase-v3.webp` fotoğraflarını kullanır. Ürünler yapay zekâ ile oluşturulan çekimin içinde fiziksel olarak yer alır; eski çerçeveli fotoğraf sunumu kaldırılmıştır. Her sahne ilgili ürünün orijinal fotoğrafı referans alınarak built-in image_gen ile tek çağrıda üretilmiştir. Ana ürün biçimi, malzemesi, demet sayısı ve belirgin etiketler görsel incelemede korunmuştur; çok küçük ambalaj yazıları birebir piksel eşliği taşımaz. Ürün ayrıntısındaki orijinal galeri esastır. Sahne eşlemesi ürün kimliğiyle yapılır; vitrin sırası değiştiğinde yanlış ürün sahnesi kullanılmaz. Sahnesi üretilmemiş ürünlerde kendi gerçek fotoğrafı gösterilir.
 
 - [Trendyol SisterCraft&Co mağazası](https://www.trendyol.com/sr?mid=1172460&os=1)
 - [TCMB 4 Eylül 2026 kur verisi](https://www.tcmb.gov.tr/kurlar/202609/04092026.xml)
