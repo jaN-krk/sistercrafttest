@@ -1,0 +1,10 @@
+import source from './catalog.json';
+export type Product={id:string;name:string;category:string;group:string;features:Record<string,string>;description:string;subtitle:string;images:string[];details:string[];note?:string;url:string;sourceDate:string;priceCents:number;stock:number;active:boolean};
+export const initialProducts=source as unknown as Product[];
+export const categories=[{id:'tumu',name:'Tüm koleksiyon'},{id:'tutsuler',name:'Tütsüler'},{id:'mumlar',name:'Mumlar'},{id:'kutular',name:'Ritüel kutuları'},{id:'tohumlar',name:'Ekilebilir hediyeler'}];
+export const money=(cents:number)=>new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',minimumFractionDigits:0,maximumFractionDigits:2}).format(cents/100);
+export type StoreSettings={checkoutEnabled:boolean;shippingConfigured:boolean;shippingCents:number;freeShippingCents:number;dispatchDays:number;legalReviewed:boolean;business:{name:string;address:string;taxOffice:string;taxNumber:string;mersis:string;kep:string;chamber:string;email:string;phone:string;returnAddress:string;returnCarrier:string;};};
+export const defaultSettings:StoreSettings={checkoutEnabled:false,shippingConfigured:false,shippingCents:0,freeShippingCents:0,dispatchDays:3,legalReviewed:false,business:{name:'',address:'',taxOffice:'',taxNumber:'',mersis:'',kep:'',chamber:'',email:'',phone:'',returnAddress:'',returnCarrier:''}};
+export type PublicConfig=StoreSettings & {paymentReady:boolean;orderingReady:boolean};
+export type CartLine={product:Product;quantity:number};
+export type Cart={items:CartLine[];subtotal:number;shipping:number;total:number;count:number;csrf:string};

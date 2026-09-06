@@ -1,0 +1,1 @@
+export default function robots(){return{rules:{userAgent:'*',allow:'/',disallow:['/api/','/yonetim','/odeme','/sepet','/siparisler']},sitemap:'https://sistercraft-co.cankarakas.chatgpt.site/sitemap.xml'}}

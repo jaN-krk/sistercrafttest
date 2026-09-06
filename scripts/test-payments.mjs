@@ -1,0 +1,31 @@
+import {build} from 'esbuild';
+import {createHmac} from 'node:crypto';
+import assert from 'node:assert/strict';
+let checks=0;const check=(v,m)=>{assert(v,m);checks++;};
+globalThis.__testEnv={IYZICO_API_KEY:'unit-test-key',IYZICO_SECRET_KEY:'unit-test-secret',IYZICO_MODE:'sandbox'};
+const result=await build({entryPoints:['lib/iyzico.ts','lib/security.ts'],bundle:true,write:false,platform:'node',format:'esm',outdir:'memory',plugins:[{name:'test-runtime',setup(b){b.onResolve({filter:/^\.\/server$/},()=>({path:'runtime',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export function runtime(){return globalThis.__testEnv}',loader:'js'}));}}]});
+const modules=await Promise.all(result.outputFiles.map(f=>import('data:text/javascript;base64,'+Buffer.from(f.text).toString('base64'))));
+const iyzi=modules.find(m=>m.iyzico),sec=modules.find(m=>m.toCents);
+const mac=m=>createHmac('sha256','unit-test-secret').update(m).digest('hex');
+check(await sec.hmac('key','The quick brown fox jumps over the lazy dog')==='f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8','HMAC known vector');
+check(sec.toCents('10.50')===1050&&sec.toCents('0.01')===1,'integer kuruş parsing');
+for(const invalid of ['1e3','NaN','1.009','-1']){assert.throws(()=>sec.toCents(invalid));checks++;}
+check(sec.normalizedMoney('50.00')==='50'&&sec.normalizedMoney('10.50')==='10.5','provider amount normalization');
+let captured;globalThis.fetch=async(url,options)=>{captured={url,options};return new Response(JSON.stringify({status:'success'}),{status:200});};
+await iyzi.iyzico('/payment/iyzipos/checkoutform/initialize/auth/ecom',{locale:'tr',price:'10.50',name:'Çağrı'});
+const {options,url}=captured;const random=options.headers['x-iyzi-rnd'];const decoded=Buffer.from(options.headers.Authorization.slice(8),'base64').toString();
+check(url.startsWith('https://sandbox-api.iyzipay.com/'),'sandbox endpoint separation');
+check(decoded===`apiKey:unit-test-key&randomKey:${random}&signature:${mac(random+'/payment/iyzipos/checkoutform/initialize/auth/ecom'+options.body)}`,'request signs exact UTF8 JSON payload');
+await iyzi.verifyResponse({conversationId:'order',token:'token',signature:mac('order:token')},'init');checks++;
+await assert.rejects(()=>iyzi.verifyResponse({conversationId:'order',token:'modified',signature:mac('order:token')},'init'));checks++;
+const detail={paymentStatus:'SUCCESS',paymentId:'12',currency:'TRY',basketId:'basket',conversationId:'order',paidPrice:'10.50',price:'10.50',token:'token',signature:mac('SUCCESS:12:TRY:basket:order:10.5:10.5:token')};
+await iyzi.verifyResponse(detail,'detail');checks++;
+await assert.rejects(()=>iyzi.verifyResponse({...detail,paidPrice:'0.01'},'detail'));checks++;
+await iyzi.verifyResponse({paymentId:'12',price:'10.50',currency:'TRY',conversationId:'refund',signature:mac('12:10.5:TRY:refund')},'refund');checks++;
+for(const bad of ['http://iyzico.com/pay','https://iyzico.com.evil.example/pay','javascript:alert(1)']){assert.throws(()=>iyzi.checkoutUrl(bad));checks++;}
+check(iyzi.checkoutUrl('https://cpp.iyzipay.com/pay')==='https://cpp.iyzipay.com/pay','provider HTTPS allowlist');
+const payload={iyziEventType:'CHECKOUT_FORM_AUTH',iyziPaymentId:'12',token:'token',paymentConversationId:'order',status:'SUCCESS'};
+const signature=mac('unit-test-secretCHECKOUT_FORM_AUTH12tokenorderSUCCESS');
+await iyzi.verifyWebhook(new Request('https://site.example/api/payments/webhook',{headers:{'x-iyz-signature-v3':signature}}),payload);checks++;
+await assert.rejects(()=>iyzi.verifyWebhook(new Request('https://site.example/api/payments/webhook',{headers:{'x-iyz-signature-v3':'0'.repeat(64)}}),payload));checks++;
+console.log(JSON.stringify({ok:true,checks,network:'All provider calls stubbed; no charge, no credentials, no external request.'},null,2));

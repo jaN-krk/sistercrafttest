@@ -1,0 +1,12 @@
+import type {Metadata} from 'next';
+import {notFound} from 'next/navigation';
+import {CollectionPage,ProductPage,StoryPage,JournalPage,ContactPage,FaqPage,CartPage} from '@/components/store-pages';
+import {CheckoutPage,OrdersPage} from '@/components/checkout';
+import {LegalPage} from '@/components/legal';
+import {AdminPage} from '@/components/admin';
+import {getProducts} from '@/lib/server';
+export const dynamic='force-dynamic';
+type Props={params:Promise<{path:string[]}>;searchParams:Promise<Record<string,string|string[]|undefined>>};
+const titles:Record<string,string>={koleksiyon:'Koleksiyon',hikayemiz:'Hikâyemiz',gunluk:'Ritüel Günlüğü',iletisim:'İletişim',sss:'Sıkça Sorulan Sorular',sepet:'Sepetim',odeme:'Güvenli Ödeme',siparisler:'Siparişlerim',yonetim:'Mağaza Yönetimi',gizlilik:'Gizlilik ve KVKK',cerezler:'Çerez Politikası','teslimat-iade':'Teslimat ve İade','mesafeli-satis':'Mesafeli Satış','on-bilgilendirme':'Ön Bilgilendirme'};
+export async function generateMetadata({params}:Props):Promise<Metadata>{const{path}=await params;if(path[0]==='urun'){const p=(await getProducts()).find(p=>p.id===path[1]&&p.active);return {title:p?.name??'Ürün bulunamadı',description:p?.subtitle};}return{title:titles[path[0]]||'SisterCraft&Co',robots:['yonetim','odeme','sepet','siparisler'].includes(path[0])?{index:false,follow:false}:undefined};}
+export default async function Page({params,searchParams}:Props){const{path}=await params;const query=await searchParams;const root=path[0];if(root==='koleksiyon'&&path.length===1)return <CollectionPage category={typeof query.kategori==='string'?query.kategori:'tumu'} query={typeof query.ara==='string'?query.ara:''}/>;if(root==='urun'&&path.length===2){if(!(await getProducts()).some(p=>p.id===path[1]&&p.active))notFound();return <ProductPage id={path[1]}/>;}if(root==='gunluk'&&path.length<=2){if(path[1]&&!['kendine-bes-dakika','tutsu-ile-ilk-tanisma','mumunun-isigini-koru'].includes(path[1]))notFound();return <JournalPage slug={path[1]}/>;}if(path.length!==1)notFound();switch(root){case'hikayemiz':return <StoryPage/>;case'iletisim':return <ContactPage/>;case'sss':return <FaqPage/>;case'sepet':return <CartPage/>;case'odeme':return <CheckoutPage/>;case'siparisler':return <OrdersPage/>;case'yonetim':return <AdminPage/>;case'gizlilik':case'cerezler':case'teslimat-iade':case'mesafeli-satis':case'on-bilgilendirme':return <LegalPage page={root}/>;default:notFound();}}
