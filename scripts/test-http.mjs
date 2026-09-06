@@ -7,7 +7,9 @@ const missing=await fetch(origin+'/urun/not-a-product');check(missing.status===4
 for(const p of products)for(const src of p.images){const r=await fetch(origin+src,{method:'HEAD'});check(r.ok&&r.headers.get('content-type')?.startsWith('image/'),'real image '+src);}
 const cartRes=await fetch(origin+'/api/cart');const cookie=cartRes.headers.get('set-cookie')?.split(';')[0];const cart=await cartRes.json();check(!!cookie&&cart.csrf.length===64,'server session with CSRF');check(cartRes.headers.get('set-cookie').includes('HttpOnly'),'HttpOnly session');
 const post=async(path,data,extra={})=>{const response=await fetch(origin+'/api/'+path,{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json',Origin:origin,'x-csrf-token':cart.csrf,...extra},body:JSON.stringify(data)});const result=await response.text();if(response.status>=500&&path!=='checkout'&&path!=='payments/webhook')console.error(path,response.status,result.slice(0,250));return response;};
-check((await post('cart',{productId:products[0].id,quantity:1})).status===409,'unavailable stock cannot enter cart');
+check((await post('cart',{productId:products[0].id,quantity:1})).status===200,'out-of-stock products can be saved in cart');
+const saved=await(await fetch(origin+'/api/cart',{headers:{Cookie:cookie}})).json();check(saved.items[0].product.stock===0&&saved.total===products[0].priceCents,'saved cart uses real stock and authoritative price');
+check((await post('cart',{productId:products[0].id,quantity:21})).status===400,'cart quantity remains bounded');
 check((await post('cart',{productId:products[0].id,quantity:1},{Origin:'https://evil.example'})).status===403,'cross-origin mutation rejected');
 check((await post('cart',{productId:products[0].id,quantity:1},{'x-csrf-token':'forged'})).status===403,'forged CSRF rejected');
 check((await post('cart',{productId:products[0].id,quantity:-1})).status===400,'negative quantity rejected');

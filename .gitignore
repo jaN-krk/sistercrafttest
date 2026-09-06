@@ -43,3 +43,5 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+/scripts/localize-existing.mjs

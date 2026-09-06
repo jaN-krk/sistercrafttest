@@ -1,18 +1,43 @@
 # SisterCraft&Co mağazası
 
-20 gerçek Trendyol ürününden oluşan Türkçe mağaza. 37 orijinal fotoğraf, iki AI editoryal sahne, ürün arama/filtreleme, kalıcı sepet, iyzico Checkout Form, sipariş/kargo/iade yönetimi, bildirim talepleri ve işletme ayarları içerir.
+20 gerçek Trendyol ürününden oluşan Türkçe/İngilizce mağaza. 37 orijinal fotoğraf, gerçek ürün fotoğraflarını değiştirmeden kullanan üç slaytlı vitrin, iki yeni AI atmosfer arka planı, arama/filtreleme, sunucuda kalıcı sepet ve kapsamlı yönetim paneli içerir. Beyaz ve koyu yeşil tasarım; blurlu sabit menü, mobil menü, kontrollü animasyonlar ve erişilebilir etkileşimlerle tamamlanmıştır.
 
 ## Teslim edilen durum
 
 Mağaza gerçek veritabanı kullanır. Başlangıç stoku, kullanıcının beyanına göre tüm ürünlerde sıfırdır. Fiyatlar 6 Eylül 2026 Trendyol satıcı sayfasından alınmıştır. İşletmeye ait canlı ödeme hesabı, doğrulanmış gönderici e-postası ve ticari/yasal bilgiler ortamda bulunmadığı için **sipariş kabulü kapalıdır**. Eksikleri uyduran veya ödeme başarılıymış gibi gösteren bir akış yoktur.
 
-Sitenin ilk yayını yalnızca sahibinin erişebildiği özel yayındır. İyzico callback/webhook sunucuları bu özel yayına erişemez. Gerçek satış için işletme kurulumunu tamamlamak ve siteyi kamuya açık HTTPS erişime geçirmek gerekir.
+**İnternet yayını henüz tamamlanmadı.** İlk özel yayın Sites veritabanı migration aşamasında `incomplete input: SQLITE_ERROR` hatasıyla durdu. Uzak servis uygulanmış/uygulanmamış migration sınırını göstermediği için veritabanı geçmişi değiştirilmedi ve aynı hata körlemesine tekrar denenmedi. V2 bu dosyaları değiştirmez. Üç migration yerel gerçek SQLite ve Wrangler üzerinde başarıyla uygulanır; hosting ayrıştırıcısıyla uyumsuzluk olasılığı vardır, kesin neden doğrulanmış değildir. Sites tarafından hatalı dosyanın ve uygulanmış migration kayıtlarının belirlenmesi gerekir.
+
+Planlanan ilk yayın yalnızca sahibine açıktır. iyzico callback/webhook sunucuları bu özel erişimden geçemez. Gerçek satış için hosting sorunu çözülmeli, işletme kurulumu tamamlanmalı ve site kamuya açık HTTPS erişime geçirilmelidir.
 
 ## Yönetim
 
 `/yonetim` adresi ChatGPT hesabıyla doğrulanan yöneticiye açıktır. İlk kayıt sırasında `ADMIN_BOOTSTRAP_PRIVATE=true` **yalnızca Sites erişimi owner-only iken** kullanılır. İlk yönetim ziyaretindeki güvenilir platform kullanıcı kimliği D1'de `admin_owner` olarak kaydedilir. Site genel erişime açılmadan önce bu ayar `false` yapılmalıdır. İsteğe bağlı `ADMIN_EMAILS` açık izin listesidir. Tarayıcıdan gelen rol/kimlik bilgileri yetkilendirmede kullanılmaz; Sites dispatcher tarafından sağlanan kimlik esas alınır.
 
-Ürün fiyatı ve kısa açıklaması değiştirilebilir. Stok güncellemesi mutlak miktar yazmak yerine atomik artış/azalıştır; yönetici eski ekranı kaydettiğinde eşzamanlı rezervasyonun üzerine yazılmaz. Farklı yönetim işlemleri denetim kaydına yazılır.
+Panelin on bölümü aynı mağaza verileriyle çalışır:
+
+- Genel bakış: 7/30/90/365 günlük net satış, tamamlanan iadeler, ödeme alınan siparişler, günlük grafik, en çok satan ürünler ve CSV raporu. Başlangıçta gerçek satış bulunmadığından boş durumlar gösterilir.
+- Ürünler: yeni ürün oluşturma; Türkçe ve İngilizce isim, kısa/uzun açıklama, içerik ve özellikler; kategori, fiyat, görünürlük, fotoğraflar ve kapak seçimi.
+- Stok: arama, stok dışı/azalan stok filtreleri, toplu atomik artış ve azalış. Stok satılabilir miktardır; ödeme rezervasyonları düşülmüştür. Eşzamanlı işlem nedeniyle uygulanamayan satırlar açıkça gösterilir.
+- Siparişler: arama, durum filtreleri, sayfalama, CSV, ayrıntılar, kargo bilgileri, teslimat, iade ve belirsiz ödeme mutabakatı.
+- Müşteriler: gerçek siparişlerden oluşturulan müşteri listesi, net tahsilat, arama, sayfalama ve CSV.
+- Medya: orijinal fotoğraflar, R2 yüklemeleri, kapak seçimi ve sonraki sayfaları yükleme. JPG/PNG/WebP, en fazla 4 MB; MIME/dosya imzası kontrolü, SVG reddi ve varlık doğrulaması. Fotoğraf baytları değiştirilmez.
+- Vitrin: slider ürünleri/sıralaması, öne çıkan ürünler, iki dilde duyuru ve TCMB kur güncelleme.
+- Talepler: stok bildirimi ve müşteri mesajlarının yönetimi.
+- Ayarlar: işletme, iletişim, kargo, iade, hukuki metinler ve sipariş kabulü.
+- Güvenlik: kurulum durumu, işlem kayıtları ve operasyon bakım araçları.
+
+Stok güncellemesi mevcut miktarın üzerine yazmaz; atomik fark uygular. Kur, vitrin ve işletme ayarları bağımsız `json_patch` işlemleriyle kaydedilir. Yönetim işlemleri denetim kaydına yazılır. CSV dışa aktarımında formül enjeksiyonu engellenir.
+
+## Dil, fiyatlar ve sepet
+
+Dil tercihi Türkçe/İngilizce olarak çerezle korunur ve ilk sunucu çıktısına uygulanır. 20 ürünün İngilizce adı, açıklamaları, özellikleri ve içerikleri mevcuttur; panelden değiştirilebilir.
+
+Ana fiyatlar TL/kuruş olarak tutulur. İngilizce görünüm USD karşılığını `TL / USDTRY` üzerinden iki ondalığa yuvarlar. Başlangıç kuru 4 Eylül 2026 TCMB döviz satış kuru, **1 USD = 48,3195 TRY**; 6 Eylül pazar günü son yayımlanmış kurdur. Örnek: 2.000 TL ≈ $41.39. Panelden resmî kur güncellenebilir; eski tarihli kur yeni değerin üzerine yazamaz.
+
+İngilizce görünen dolar tutarı bilgilendirme karşılığıdır. Mevcut iyzico entegrasyonu **TRY tahsil eder**; kesin TL tutarı ödeme öncesinde açıklanır. Çoklu para birimi yetkisi doğrulanmadığından USD tahsilatı yapılmış gibi gösterilmez.
+
+Stok dışı ürün sepete eklenip saklanabilir, ancak stok uygun olmadan satın alınamaz. Ürün fiyatı, etkinliği ve stok ödeme öncesinde sunucuda yeniden denetlenir. Sepette gizlenmiş ürünler de kaldırılabilir. İstemciden gönderilen fiyatlar kullanılmaz.
 
 ## Canlı ödeme açılışı
 
@@ -55,7 +80,9 @@ Doğrulama araçları:
 
 - `scripts/test-database.py`: gerçek SQLite migrationları üzerinde 10 işlem/rezervasyon/geri alma/idempotency testi.
 - `scripts/test-payments.mjs`: gerçek dış servis çağrısı yapmadan 20 HMAC, tutar, imza, webhook ve yönlendirme kontrolü.
-- `scripts/test-http.mjs`: 20 ürün/37 fotoğraf, sayfa, HTTP ve API erişim kontrolleri.
+- `scripts/test-http.mjs`: 162 katalog, sayfa, HTTP ve API kontrolü.
+- `scripts/test-admin-sql.py`: 8 gerçek sorgu kontrolü; kısmi iadeler, İstanbul tarih sınırı, müşteri net tutarı ve bağımsız ayar güncellemeleri.
+- `scripts/test-commerce-v2.mjs`: izole yerel D1 ve R2 üzerinde yönetim → mağaza → sepet bağlantısı, TR/EN fiyat, medya ve yetki akışları. Bu script boş ve yalnızca test için ayrılmış veritabanında çalıştırılır; gerçek mağazada çalıştırılmaz.
 - TypeScript doğrulaması ve production build.
 
 Canlı/sandbox merchant hesabıyla gerçek ödeme ve iade yapılmadı; bu hesap erişimi yoktur. Tarayıcı tıklama/görsel otomasyon testi talep edilmediği için yapılmadı. WebMCP arama ve sepet araçları eklendi; desteklenen bir WebMCP test bağlamı bulunmadığından gerçek kayıt/çağrı doğrulaması yapılmış sayılmaz.
@@ -66,13 +93,16 @@ Canlı/sandbox merchant hesabıyla gerçek ödeme ve iade yapılmadı; bu hesap 
 
 Node 22.13+ ve npm kullanılır. `npm install`, `npm run dev`, `npm run build`. Windows yolundaki `&` nedeniyle npm script shell sorun yaşarsa ilgili vinext Node girişini doğrudan çalıştır: `node node_modules/vinext/dist/cli.js dev` / `build`.
 
+Yönetim önizlemesinde `.dev.vars` içine `ADMIN_BOOTSTRAP_PRIVATE=true` konur; `/signin-with-chatgpt?return_to=%2Fyonetim` adresi yerel geliştirme kimliğini açar. Bu yerel ayar ve veritabanı Git’e dahil edilmez. Üretim ortamında kimlik yalnızca Sites dispatcher üzerinden kabul edilir. Yüklenen görseller için `.openai/hosting.json` dosyasında `r2: "MEDIA"` bağlaması vardır.
+
 Cloudflare D1 schema değişiklikleri `db/schema.ts` ve `drizzle/` içindedir. Yerel kurulumda migrationlar sıra ile `wrangler d1 execute DB --local --config wrangler.local.json --file drizzle/FILE.sql` ile uygulanır. Yayında Sites migrationları uygular. Uygulanmış migration dosyaları değiştirilmez; yenileri eklenir.
 
 ## Görseller ve kaynaklar
 
-Orijinal ürün fotoğrafları `public/products/`, AI editoryal görseller `public/editorial/` altındadır. AI sahneleri ürün fotoğraflarından oluşturulmuştur; küçük etiket yazılarında üretim farklılıkları olabilir. Ambalaj/ürün ayrıntısı için orijinal galeri fotoğrafları esastır. Yeni ürün görseli veya stok görseli uydurulmamıştır.
+Orijinal 37 ürün fotoğrafı `public/products/` altındadır; baytları değiştirilmemiştir. V2 slider, `public/editorial/ritual-forest-empty-plinth.webp` ve `ritual-linen-empty-plinth.webp` adlı iki AI arka plan üzerinde gerçek fotoğrafı ayrı bir katman olarak kullanır. AI arka planlarda ürün, ambalaj veya yazı yoktur. V1 ürünlü AI sahneleri dosya geçmişi için korunur ancak mağazada kullanılmaz. Kullanıcının istemediği parıltı simgesi kaldırılmıştır.
 
 - [Trendyol SisterCraft&Co mağazası](https://www.trendyol.com/sr?mid=1172460&os=1)
+- [TCMB 4 Eylül 2026 kur verisi](https://www.tcmb.gov.tr/kurlar/202609/04092026.xml)
 - [iyzico CF](https://docs.iyzico.com/en/payment-methods/checkoutform/cf-implementation/cf-initialize)
 - [iyzico yanıt imzaları](https://docs.iyzico.com/en/advanced/response-signature-validation)
 - [iyzico webhook](https://docs.iyzico.com/ek-servisler/webhook)

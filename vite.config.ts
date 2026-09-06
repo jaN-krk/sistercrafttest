@@ -46,7 +46,7 @@ export default defineConfig(async () => {
 
   return {
     resolve: { dedupe: ['react', 'react-dom'] },
-    optimizeDeps: { include: ['@base-ui/react/toast','@base-ui/react/dialog','@base-ui/react/accordion','@base-ui/react/tabs','@base-ui/react/select','@base-ui/react/checkbox','@base-ui/react/switch','@base-ui/react/alert-dialog'] },
+    optimizeDeps: { include: ['@base-ui/react/navigation-menu','embla-carousel-react','@base-ui/react/tooltip','@base-ui/react/separator','@base-ui/react/merge-props','@base-ui/react/use-render','@base-ui/react/toast','@base-ui/react/dialog','@base-ui/react/accordion','@base-ui/react/tabs','@base-ui/react/select','@base-ui/react/checkbox','@base-ui/react/switch','@base-ui/react/alert-dialog'] },
     css: { postcss: { plugins: [tailwindcss()] } },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
