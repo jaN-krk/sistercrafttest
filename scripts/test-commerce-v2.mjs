@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const origin=process.env.TEST_ORIGIN||'http://127.0.0.1:3001';
 let checks=0;const ok=(condition,message)=>{assert(condition,message);checks++};
-const identity={'oai-authenticated-user-id':'isolated-test-owner','oai-authenticated-user-email':'isolated-owner@example.test'};
+const identity={};let adminCookie='';
 const cartRes=await fetch(origin+'/api/cart');const cookie=cartRes.headers.get('set-cookie').split(';')[0],cart=await cartRes.json();
-async function api(path,data,admin=true){const response=await fetch(origin+'/api/'+path,{method:data===undefined?'GET':'POST',headers:{Cookie:cookie,...(admin?identity:{}),...(data===undefined?{}:{Origin:origin,'Content-Type':'application/json','x-csrf-token':cart.csrf})},body:data===undefined?undefined:JSON.stringify(data)});return{status:response.status,data:await response.json()}}
+async function api(path,data,admin=true){const response=await fetch(origin+'/api/'+path,{method:data===undefined?'GET':'POST',headers:{Cookie:admin?adminCookie||cookie:cookie,...(admin?identity:{}),...(data===undefined?{}:{Origin:origin,'Content-Type':'application/json','x-csrf-token':cart.csrf})},body:data===undefined?undefined:JSON.stringify(data)});return{status:response.status,data:await response.json()}}
 ok((await api('admin',undefined,false)).status===401,'anonymous admin denied');
+const loginResponse=await fetch(origin+'/api/admin/auth/login',{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/json','x-csrf-token':cart.csrf},body:JSON.stringify({username:'testadmin',password:'Isolated-Admin-2026!Fixture'})});assert.equal(loginResponse.status,200);adminCookie=cookie+'; '+loginResponse.headers.get('set-cookie').split(';')[0];await loginResponse.text();
 const admin=await api('admin');ok(admin.status===200&&admin.data.products.length===20,'isolated owner can manage catalog');
 const original=admin.data.products[0];
 ok((await api('cart',{productId:original.id,quantity:2,priceCents:1},false)).status===200,'stock zero can be saved to bag');
@@ -35,10 +36,10 @@ ok((await api('admin/customers?q=missing&page=1')).data.customers.length===0,'em
 ok((await api('admin?status=invalid')).status===400,'order filter validated');
 ok((await api('admin/analytics?days=999999')).status===400,'report window bounded');
 const photo=await fs.readFile(new URL('../public/products/992963569_1.jpg',import.meta.url));
-const uploaded=await fetch(origin+'/api/admin/media/upload',{method:'POST',headers:{...identity,Cookie:cookie,Origin:origin,'x-csrf-token':cart.csrf,'Content-Type':'image/jpeg'},body:photo});const media=await uploaded.json();ok(uploaded.status===200&&media.url.startsWith('/api/media/'),'valid photo uploads to isolated R2');
+const uploaded=await fetch(origin+'/api/admin/media/upload',{method:'POST',headers:{...identity,Cookie:adminCookie,Origin:origin,'x-csrf-token':cart.csrf,'Content-Type':'image/jpeg'},body:photo});const media=await uploaded.json();ok(uploaded.status===200&&media.url.startsWith('/api/media/'),'valid photo uploads to isolated R2');
 ok((await api('admin/products/save',{...changed,inventoryDelta:0,images:[media.url]})).status===200,'uploaded photo can become product cover');
 ok((await api('admin/media')).data.media.some(m=>m.url===media.url),'uploaded media appears in library');
 const imageResponse=await fetch(origin+media.url);ok(imageResponse.ok&&Buffer.from(await imageResponse.arrayBuffer()).equals(photo),'uploaded photo bytes preserved');
-const invalid=await fetch(origin+'/api/admin/media/upload',{method:'POST',headers:{...identity,Cookie:cookie,Origin:origin,'x-csrf-token':cart.csrf,'Content-Type':'image/svg+xml'},body:'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'});ok(invalid.status===415,'SVG uploads rejected');await invalid.text();
+const invalid=await fetch(origin+'/api/admin/media/upload',{method:'POST',headers:{...identity,Cookie:adminCookie,Origin:origin,'x-csrf-token':cart.csrf,'Content-Type':'image/svg+xml'},body:'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'});ok(invalid.status===415,'SVG uploads rejected');await invalid.text();
 const forbidden=await api('admin/products/save',changed,false);ok(forbidden.status===401,'public session cannot edit products');
 console.log(JSON.stringify({ok:true,checks,scope:'isolated test database and R2; no live payments, emails or customer records'},null,2));

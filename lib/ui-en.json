@@ -438,5 +438,21 @@
   "MUMLAR": "CANDLES",
   "EKİLEBİLİR HEDİYELER": "PLANTABLE GIFTS",
   "Görsel medya kütüphanesinde bulunamadı.": "Image not found in the media library.",
-  "Geçersiz medya sayfası.": "Invalid media page."
+  "Geçersiz medya sayfası.": "Invalid media page.",
+  "Yönetim paneline giriş yapmalısın.": "Sign in to access your store.",
+  "Yönetim oturumun sona erdi. Yeniden giriş yap.": "Your admin session has expired. Please sign in again.",
+  "Kullanıcı adı veya şifre hatalı.": "Incorrect username or password.",
+  "Çok fazla giriş denemesi. 10 dakika sonra tekrar dene.": "Too many sign-in attempts. Try again in 10 minutes.",
+  "Mevcut şifre hatalı.": "Current password is incorrect.",
+  "Yeni şifre mevcut şifreden farklı olmalı.": "Choose a password different from your current one.",
+  "Şifre 16–128 karakter olmalı.": "Use a password between 16 and 128 characters.",
+  "Yönetim giriş yapılandırması tamamlanmadı.": "Administrator sign-in has not been configured.",
+  "Mağaza": "Shop",
+  "Kategoriler": "Categories",
+  "Hediye kutuları": "Gift boxes",
+  "Çok fazla giriş denemesi. Biraz bekleyip tekrar dene.": "Too many sign-in attempts. Please wait before trying again.",
+  "Giriş sistemi meşgul. Biraz sonra tekrar dene.": "Sign-in is busy. Please try again shortly.",
+  "Bu oturum için çıkış düğmesini kullan.": "Use Sign out for this session.",
+  "Şifre başka bir oturumda değişti. Yeniden giriş yap.": "The password changed in another session. Sign in again.",
+  "Yönetim girişi güvenli bağlantı gerektirir.": "Administrator sign-in requires a secure connection."
 }

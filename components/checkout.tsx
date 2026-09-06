@@ -6,7 +6,7 @@ import {Input} from '@/components/ui/input';
 import {Checkbox} from '@/components/ui/checkbox';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {toast} from '@/lib/notifications';
-import {useShop} from './shop';
+import {useShop} from './shop-context';
 import {Localized,useLanguage,CurrencyNote} from './localization';
 import {money} from '@/lib/catalog';
 export const statusLabels:Record<string,string>={initializing:'Ödeme hazırlanıyor',pending:'Ödeme bekleniyor',review:'Ödeme incelemede',reconcile:'Ödeme kontrol ediliyor',paid:'Sipariş alındı',shipped:'Kargoya verildi',delivered:'Teslim edildi',failed:'Ödeme tamamlanmadı',rejected:'Ödeme reddedildi',refund_pending:'İade işleniyor',refunded:'Ödeme iade edildi'};

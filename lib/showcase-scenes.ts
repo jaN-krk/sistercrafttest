@@ -8,16 +8,16 @@ export const showcaseScenes: Record<string, {
   '992963569': {
     image: '/editorial/ritual-box-showcase-v3.webp',
     tone: 'forest',
-    position: '50% 50%',
+    position: '50% 76%',
   },
   '992965152': {
     image: '/editorial/amber-noir-showcase-v3.webp',
     tone: 'linen',
-    position: '50% 50%',
+    position: '50% 70%',
   },
   '992861265': {
     image: '/editorial/incense-bundles-showcase-v3.webp',
     tone: 'forest',
-    position: '50% 65%',
+    position: '50% 80%',
   },
 };

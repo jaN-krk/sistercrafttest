@@ -10,7 +10,7 @@ import {Input} from '@/components/ui/input';
 import {Switch} from '@/components/ui/switch';
 import {Checkbox} from '@/components/ui/checkbox';
 import {toast} from '@/lib/notifications';
-import {useShop} from './shop';
+import {useShop} from './shop-context';
 import {money,type Product,type StoreSettings,defaultSettings} from '@/lib/catalog';
 import {statusLabels,saveContract} from './checkout';
 import {Localized} from './localization';

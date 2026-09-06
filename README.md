@@ -1,18 +1,26 @@
 # SisterCraft&Co mağazası
 
-20 gerçek Trendyol ürününden oluşan Türkçe/İngilizce mağaza. 37 orijinal fotoğraf, ürün referanslarından oluşturulmuş üç bütünleşik AI çekimi kullanan vitrin, arama/filtreleme, sunucuda kalıcı sepet ve kapsamlı yönetim paneli içerir. Beyaz ve koyu yeşil tasarım; blurlu sabit menü, mobil menü, kontrollü animasyonlar ve erişilebilir etkileşimlerle tamamlanmıştır.
+20 gerçek Trendyol ürününden oluşan Türkçe/İngilizce mağaza. 37 orijinal fotoğraf, ürün referanslarından oluşturulmuş üç vitrin çekimi ve üç ayrı AI kategori fotoğrafı, arama/filtreleme, sunucuda kalıcı sepet ve şifreli yönetim paneli içerir. Beyaz ve koyu yeşil tasarım; iki sıralı blurlu sabit alışveriş menüsü, mobil menü, kontrollü animasyonlar ve erişilebilir etkileşimlerle tamamlanmıştır.
+
+V4 ana vitrinin masaüstü yüksekliğini 430–540 px aralığıyla sınırlar; mobilde başlık ve ürün fotoğrafı ayrı, ölçülü alanlardadır. Menüde Mağaza, ürün kategorileri, arama, dil seçimi, Siparişlerim ve sepet bulunur. `/magaza` mağaza girişidir; mevcut `/koleksiyon` bağlantıları da çalışır. Ürün ayrıntısında orijinal fotoğraf doğal en/boy oranıyla, sarı yan dolgu olmadan gösterilir. Kategori kartlarında fotoğrafın altındaki ayrı başlık alanı ürünlerin üzerini kapatmaz.
 
 ## Teslim edilen durum
 
 Mağaza gerçek veritabanı kullanır. Başlangıç stoku, kullanıcının beyanına göre tüm ürünlerde sıfırdır. Fiyatlar 6 Eylül 2026 Trendyol satıcı sayfasından alınmıştır. İşletmeye ait canlı ödeme hesabı, doğrulanmış gönderici e-postası ve ticari/yasal bilgiler ortamda bulunmadığı için **sipariş kabulü kapalıdır**. Eksikleri uyduran veya ödeme başarılıymış gibi gösteren bir akış yoktur.
 
-**İnternet yayını henüz tamamlanmadı.** İlk özel yayın Sites veritabanı migration aşamasında `incomplete input: SQLITE_ERROR` hatasıyla durdu. Uzak servis uygulanmış/uygulanmamış migration sınırını göstermediği için veritabanı geçmişi değiştirilmedi ve aynı hata körlemesine tekrar denenmedi. V2 bu dosyaları değiştirmez. Üç migration yerel gerçek SQLite ve Wrangler üzerinde başarıyla uygulanır; hosting ayrıştırıcısıyla uyumsuzluk olasılığı vardır, kesin neden doğrulanmış değildir. Sites tarafından hatalı dosyanın ve uygulanmış migration kayıtlarının belirlenmesi gerekir.
+**İnternet yayını henüz tamamlanmadı.** İlk özel yayın Sites veritabanı migration aşamasında `incomplete input: SQLITE_ERROR` hatasıyla durdu. Uzak servis uygulanmış/uygulanmamış migration sınırını göstermediği için veritabanı geçmişi değiştirilmedi ve aynı hata körlemesine tekrar denenmedi. V4 bu dosyaları değiştirmez; yönetim hesabı ve oturum kayıtları mevcut `settings` tablosunu kullanır. Üç migration yerel gerçek SQLite ve Wrangler üzerinde başarıyla uygulanır; hosting ayrıştırıcısıyla uyumsuzluk olasılığı vardır, kesin neden doğrulanmış değildir. Sites tarafından hatalı dosyanın ve uygulanmış migration kayıtlarının belirlenmesi gerekir.
 
 Planlanan ilk yayın yalnızca sahibine açıktır. iyzico callback/webhook sunucuları bu özel erişimden geçemez. Gerçek satış için hosting sorunu çözülmeli, işletme kurulumu tamamlanmalı ve site kamuya açık HTTPS erişime geçirilmelidir.
 
 ## Yönetim
 
-`/yonetim` adresi ChatGPT hesabıyla doğrulanan yöneticiye açıktır. İlk kayıt sırasında `ADMIN_BOOTSTRAP_PRIVATE=true` **yalnızca Sites erişimi owner-only iken** kullanılır. İlk yönetim ziyaretindeki güvenilir platform kullanıcı kimliği D1'de `admin_owner` olarak kaydedilir. Site genel erişime açılmadan önce bu ayar `false` yapılmalıdır. İsteğe bağlı `ADMIN_EMAILS` açık izin listesidir. Tarayıcıdan gelen rol/kimlik bilgileri yetkilendirmede kullanılmaz; Sites dispatcher tarafından sağlanan kimlik esas alınır.
+`/yonetim` adresi kullanıcı adı ve şifreyle giriş gerektirir. Her yönetim API isteğinde sunucudaki yönetici oturumu doğrulanır. ChatGPT/Sites oturumu veya kimlik başlıkları yönetici erişimi sağlamaz; eski ilk ziyaretçiyi yönetici yapma akışı kaldırılmıştır. `ADMIN_BOOTSTRAP_PRIVATE` ve `ADMIN_EMAILS` yetkilendirmede kullanılmaz.
+
+İlk hesap, sunucuya güvenli biçimde tanımlanan `ADMIN_LOGIN_USER` ve `ADMIN_PASSWORD_HASH` değerlerinden bir kez oluşturulur. Kullanıcı adı 3–40 küçük harf, rakam, nokta, alt çizgi veya tire içerir. Şifre düz metin olarak tutulmaz: 16 bayt rastgele salt ile scrypt (`N=32768`, `r=8`, `p=3`, 32 bayt çıktı) kullanılır. Hash sunucu sırrıdır; kaynak koduna, tarayıcıya veya bu belgeye yazılmaz. İlk kurulumdan sonra geçerli hesap D1'de tutulur; panelden yapılan şifre değişikliği sonraki başlatmada ortam değerleriyle geri alınmaz.
+
+Yönetici için müşteri sepet oturumundan ayrı, rastgele ve tarayıcı oturumuna bağlı bir çerez oluşturulur. Sunucuda yalnızca oturum belirtecinin SHA-256 özeti saklanır. HTTPS üzerinde `__Host-`, `Secure`, `HttpOnly` ve `SameSite=Strict` kullanılır; HTTP istisnası yalnızca yerel geliştirme adresleridir. Oturum 30 dakika etkinlik olmadığında veya girişten itibaren en fazla 8 saat sonra sona erer. Başarısız girişlerde IP ve IP/kullanıcı adı sınırları ile artan bekleme süresi uygulanır.
+
+Panelin Güvenlik bölümünden açık oturumlar görülebilir, seçilen veya diğer oturumlar kapatılabilir. Şifre değişikliği mevcut şifreyi gerektirir; yeni şifre 16–128 karakter olmalı ve mevcut şifreden farklı olmalıdır. Değişiklik eski oturumları sunucuda geçersiz kılar ve yeniden giriş ister. Çıkış düğmesi sunucu oturum kaydını siler.
 
 Panelin on bölümü aynı mağaza verileriyle çalışır:
 
@@ -25,7 +33,7 @@ Panelin on bölümü aynı mağaza verileriyle çalışır:
 - Vitrin: slider ürünleri/sıralaması, öne çıkan ürünler, iki dilde duyuru ve TCMB kur güncelleme.
 - Talepler: stok bildirimi ve müşteri mesajlarının yönetimi.
 - Ayarlar: işletme, iletişim, kargo, iade, hukuki metinler ve sipariş kabulü.
-- Güvenlik: kurulum durumu, işlem kayıtları ve operasyon bakım araçları.
+- Güvenlik: şifre değiştirme, etkin oturumlar ve uzaktan oturum kapatma; kurulum durumu, işlem kayıtları ve operasyon bakım araçları.
 
 Stok güncellemesi mevcut miktarın üzerine yazmaz; atomik fark uygular. Kur, vitrin ve işletme ayarları bağımsız `json_patch` işlemleriyle kaydedilir. Yönetim işlemleri denetim kaydına yazılır. CSV dışa aktarımında formül enjeksiyonu engellenir.
 
@@ -50,8 +58,8 @@ Sunucu ortamına aşağıdaki değerler Sites üzerinden tanımlanır. Sırlar h
 | `IYZICO_MODE` | Canlı satışta `live`; sağlayıcı entegrasyon kontrollerinde `sandbox` |
 | `IYZICO_VERIFIED` | Sağlayıcı başarı, başarısızlık, tekrar bildirim ve iade akışları doğrulandıktan sonra `true` |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Doğrulanmış alan adıyla sipariş e-postaları |
-| `ADMIN_BOOTSTRAP_PRIVATE` | Yönetici bağlandıktan ve kamuya açık erişimden önce `false` |
-| `ADMIN_EMAILS` | İsteğe bağlı, virgülle ayrılan yönetici e-posta izin listesi |
+| `ADMIN_LOGIN_USER` | İlk yönetici hesabının kullanıcı adı |
+| `ADMIN_PASSWORD_HASH` | İlk yönetici hesabının salt içeren scrypt özeti; gizli sunucu değişkeni |
 
 Yönetimde ticari unvan, açık adres, vergi bilgileri, KEP, statüye uygun MERSİS/sicil ve meslek odası, destek iletişimi, iade adresi/taşıyıcısı ve kargo bedelleri tamamlanır. Metinler işletmenin gerçek süreçleriyle gözden geçirilir. ETBİS, veri aktarımı ve saklama süreçleri işletmeye göre değerlendirilir. Gerçek stok eklenir. Tüm kontroller tamamlandığında sipariş kabulü açılır. Genel politika sayfaları hazırlanmıştır; henüz girilmeyen şirket bilgileri veya kuruluşa özgü KVKK aktarım mekanizmaları için hukuki uygunluk onayı verilmiş değildir.
 
@@ -82,7 +90,8 @@ Doğrulama araçları:
 - `scripts/test-payments.mjs`: gerçek dış servis çağrısı yapmadan 20 HMAC, tutar, imza, webhook ve yönlendirme kontrolü.
 - `scripts/test-http.mjs`: 162 katalog, sayfa, HTTP ve API kontrolü.
 - `scripts/test-admin-sql.py`: 8 gerçek sorgu kontrolü; kısmi iadeler, İstanbul tarih sınırı, müşteri net tutarı ve bağımsız ayar güncellemeleri.
-- `scripts/test-commerce-v2.mjs`: izole yerel D1 ve R2 üzerinde yönetim → mağaza → sepet bağlantısı, TR/EN fiyat, medya ve yetki akışları. Bu script boş ve yalnızca test için ayrılmış veritabanında çalıştırılır; gerçek mağazada çalıştırılmaz.
+- `scripts/test-commerce-v2.mjs`: şifreli yönetici girişiyle izole yerel D1 ve R2 üzerinde 29 yönetim → mağaza → sepet bağlantısı, TR/EN fiyat, medya ve yetki kontrolü. Bu script boş ve yalnızca test için ayrılmış veritabanında çalıştırılır; gerçek mağazada çalıştırılmaz.
+- `scripts/test-admin-auth-v4.mjs`: ayrı yerel Worker ve test veritabanında 35 doğrulama; gerçek scrypt girişi, yanlış şifre, platform kimliğiyle erişim denemesi, CSRF/Origin, tarayıcı bağı, oturum kapatma, şifre değişikliği, 30 dakika/8 saat sınırları ve giriş denemesi kısıtlamaları. Test doğrudan izole oturum kayıtlarının tarihlerini değiştirir; gerçek mağaza veritabanına yönlendirilmez.
 - TypeScript doğrulaması ve production build.
 
 Canlı/sandbox merchant hesabıyla gerçek ödeme ve iade yapılmadı; bu hesap erişimi yoktur. Tarayıcı tıklama/görsel otomasyon testi talep edilmediği için yapılmadı. WebMCP arama ve sepet araçları eklendi; desteklenen bir WebMCP test bağlamı bulunmadığından gerçek kayıt/çağrı doğrulaması yapılmış sayılmaz.
@@ -93,13 +102,17 @@ Canlı/sandbox merchant hesabıyla gerçek ödeme ve iade yapılmadı; bu hesap 
 
 Node 22.13+ ve npm kullanılır. `npm install`, `npm run dev`, `npm run build`. Windows yolundaki `&` nedeniyle npm script shell sorun yaşarsa ilgili vinext Node girişini doğrudan çalıştır: `node node_modules/vinext/dist/cli.js dev` / `build`.
 
-Yönetim önizlemesinde `.dev.vars` içine `ADMIN_BOOTSTRAP_PRIVATE=true` konur; `/signin-with-chatgpt?return_to=%2Fyonetim` adresi yerel geliştirme kimliğini açar. Bu yerel ayar ve veritabanı Git’e dahil edilmez. Üretim ortamında kimlik yalnızca Sites dispatcher üzerinden kabul edilir. Yüklenen görseller için `.openai/hosting.json` dosyasında `r2: "MEDIA"` bağlaması vardır.
+Yerel `.dev.vars` dosyasında `ADMIN_LOGIN_USER` ve bu uygulamanın scrypt biçimindeki `ADMIN_PASSWORD_HASH` tanımlanır. `.env.example` gerekli alanları gösterir; boş alanlar geçerli bir yönetici hesabı oluşturmaz. Hash güvenli bir kurulum sürecinde `lib/admin-auth.ts` içindeki `passwordDigest` ile üretilir. Düz metin şifre komut geçmişine, kaynak dosyalarına veya Git'e konmaz. Yerel ve yayımlanan ortamların veritabanı/oturumları ayrıdır. `/yonetim` giriş formu kullanılır; eski `/signin-with-chatgpt` akışı yönetim erişimi vermez. Yerel ayarlar ve veritabanı Git’e dahil edilmez. Yüklenen görseller için `.openai/hosting.json` dosyasında `r2: "MEDIA"` bağlaması vardır.
+
+Ürün ve stok yönetimi yerel veritabanına kalıcı olarak kaydedilir. Geliştirme sunucusunu yeniden başlatmak veya arayüzü güncellemek için bu veritabanı sıfırlanmaz. Yönetim testlerinde ayrı `--persist-to` dizini ve fixture hesabı kullanılır; mevcut mağaza stoğu üzerine test verisi yazılmaz.
 
 Cloudflare D1 schema değişiklikleri `db/schema.ts` ve `drizzle/` içindedir. Yerel kurulumda migrationlar sıra ile `wrangler d1 execute DB --local --config wrangler.local.json --file drizzle/FILE.sql` ile uygulanır. Yayında Sites migrationları uygular. Uygulanmış migration dosyaları değiştirilmez; yenileri eklenir.
 
 ## Görseller ve kaynaklar
 
 Orijinal 37 ürün fotoğrafı `public/products/` altındadır; katalog galerilerindeki fotoğraf baytları değiştirilmemiştir. V3 slider, `public/editorial/ritual-box-showcase-v3.webp`, `amber-noir-showcase-v3.webp` ve `incense-bundles-showcase-v3.webp` fotoğraflarını kullanır. Ürünler yapay zekâ ile oluşturulan çekimin içinde fiziksel olarak yer alır; eski çerçeveli fotoğraf sunumu kaldırılmıştır. Her sahne ilgili ürünün orijinal fotoğrafı referans alınarak built-in image_gen ile tek çağrıda üretilmiştir. Ana ürün biçimi, malzemesi, demet sayısı ve belirgin etiketler görsel incelemede korunmuştur; çok küçük ambalaj yazıları birebir piksel eşliği taşımaz. Ürün ayrıntısındaki orijinal galeri esastır. Sahne eşlemesi ürün kimliğiyle yapılır; vitrin sırası değiştiğinde yanlış ürün sahnesi kullanılmaz. Sahnesi üretilmemiş ürünlerde kendi gerçek fotoğrafı gösterilir.
+
+V4 kategori alanları için üç yeni yatay 3:2 fotoğraf oluşturuldu: tek SAGE demeti, Amber Noir + Vanilla mumları ve kapalı Ritüel Kutusu ile kendi bileşenleri. Bunlar `public/editorial/category-incense-v4.webp`, `category-candles-v4.webp` ve `category-ritual-v4.webp` dosyalarıdır. Mum fotoğrafındaki Vanilla ürün kodu için ayrıca hedefli bir düzeltme yapıldı. Üç çekim ve bir düzeltme built-in image_gen ile üretildi; WebP kopyaları yalnızca web sunumu için dönüştürüldü. Orijinal katalog fotoğrafları aynı kalır. [V4 görsel dosyaları, referanslar ve kullanılan tam üretim metinleri](docs/site-imagery-v4.md) ile [V3 vitrin üretim metinleri](docs/showcase-prompts-v3.md) belgelenmiştir.
 
 - [Trendyol SisterCraft&Co mağazası](https://www.trendyol.com/sr?mid=1172460&os=1)
 - [TCMB 4 Eylül 2026 kur verisi](https://www.tcmb.gov.tr/kurlar/202609/04092026.xml)
