@@ -18,4 +18,5 @@ check((await post('checkout',{expectedTotal:1})).status===503,'checkout cannot r
 check([401,403].includes((await fetch(origin+'/api/admin',{headers:{Cookie:cookie}})).status),'anonymous admin blocked');
 check([400,403,503].includes((await post('payments/webhook',{iyziEventType:'CHECKOUT_FORM_AUTH',token:'fake'})).status),'unsigned webhook rejected');
 const fresh=await fetch(origin+'/api/orders');const freshOrders=await fresh.json();check(freshOrders.orders.length===0,'fresh session has no customer order access');
+check((await post('cart',{productId:products[0].id,quantity:0})).status===200,'test cart cleaned up');
 console.log(JSON.stringify({ok:true,checks:count,products:products.length,photos:37,scope:'HTTP and API contract tests; no live charge and no browser UI automation'},null,2));

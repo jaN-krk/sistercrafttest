@@ -1,3 +1,4 @@
+import {clientIp} from './client-ip';
 import {scrypt,randomBytes,timingSafeEqual} from 'node:crypto';
 import {Buffer} from 'node:buffer';
 import {db,runtime,body,json,audit,rateLimit,type Session} from './server';
@@ -60,7 +61,7 @@ export async function adminAuthRoutes(req:Request,path:string,browser:Session):P
   if(path==='admin/auth/login'&&req.method==='POST'){
     await rateLimit(req,'admin-password-ip',12);
     const data=await body(req),username=string(data.username,1,40).toLowerCase(),password=validPassword(data.password),owner=await account();
-    const now=Date.now(),window=Math.floor(now/600000),ip=req.headers.get('cf-connecting-ip')||'local';
+    const now=Date.now(),window=Math.floor(now/600000),ip=clientIp(req);
     const attemptKey=await sha('admin-password-pair:'+ip+':'+username+':'+window),cooldownKey=await sha('admin-password-cooldown:'+ip+':'+username);
     const cooldown=await db().prepare('SELECT count,expires FROM rate_limits WHERE key=?').bind(cooldownKey).first<{count:number;expires:number}>();
     assert(!cooldown||cooldown.expires<=now,429,'Çok fazla giriş denemesi. Biraz bekleyip tekrar dene.');

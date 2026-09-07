@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {createClient} from '@libsql/client';
+import {readFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+
+const compiled=await build({stdin:{contents:"export {TursoDatabase} from './lib/turso-adapter'; export {drainMail,mailStatus} from './lib/mail';",resolveDir:process.cwd()},bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'isolated-runtime',setup(b){
+  b.onResolve({filter:/^@store\/runtime$/},()=>({path:'runtime',namespace:'fixture'}));
+  b.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export const env=globalThis.__mailFixture;',loader:'js'}));
+  b.onResolve({filter:/\.sql\?raw$/},a=>({path:resolve(a.resolveDir,a.path.slice(0,-4)),namespace:'sql'}));
+  b.onLoad({filter:/.*/,namespace:'sql'},async a=>({contents:await readFile(a.path,'utf8'),loader:'text'}));
+}}]});
+globalThis.__mailFixture={APP_ORIGIN:'https://store.example',STORE_NOTIFICATION_EMAIL:'owner@example.com'};
+const {TursoDatabase,drainMail,mailStatus}=await import('data:text/javascript;base64,'+Buffer.from(compiled.outputFiles[0].text).toString('base64'));
+const client=createClient({url:':memory:'}),db=new TursoDatabase(client);
+globalThis.__mailFixture.DB=db;
+const originalFetch=globalThis.fetch,sends=[];
+let reject=true,checks=0;
+const check=(condition,label)=>{assert(condition,label);checks++;};
+try {
+  await db.prepare('INSERT INTO requests VALUES(?,?,?,?,?,?,?)').bind('request-test','contact','customer@example.com',null,JSON.stringify({name:'<script>test</script>',message:'A saved request & a real queue.'}),'new',Date.now()).run();
+  check((await db.prepare('SELECT COUNT(*) AS n FROM notification_outbox').first()).n===1,'request and notification saved atomically');
+  check((await drainMail()).pending===true,'no credentials leaves pending without sending');
+  check((await db.prepare('SELECT status FROM notification_outbox').first()).status==='ready','unconfigured queue untouched');
+  Object.assign(globalThis.__mailFixture,{RESEND_API_KEY:'test-only',EMAIL_FROM:'Store <notice@example.com>'});
+  globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.resend.com/emails');sends.push(options);return Response.json(reject?{error:'temporary'}:{id:'test-provider-id'},{status:reject?503:200});};
+  await drainMail();
+  check((await db.prepare('SELECT status FROM notification_outbox').first()).status==='sending','provider failure stays retryable');
+  check((await db.prepare('SELECT COUNT(*) AS n FROM requests').first()).n===1,'provider outage never loses request');
+  await drainMail();check(sends.length===1,'recent claims cannot be double sent');
+  await db.prepare('UPDATE notification_outbox SET updated_at=?').bind(Date.now()-61000).run();
+  globalThis.__mailFixture.STORE_NOTIFICATION_EMAIL='changed@example.com';
+  reject=false;await drainMail();
+  check(sends.length===2&&sends[0].body===sends[1].body,'retry freezes payload and recipient');
+  check(sends[0].headers['Idempotency-Key']===sends[1].headers['Idempotency-Key'],'retry reuses provider idempotency key');
+  const content=JSON.parse(sends[0].body);
+  check(content.to[0]==='owner@example.com'&&content.reply_to==='customer@example.com','owner receives request and can reply to customer');
+  check(!content.html.includes('<script>')&&content.html.includes('&lt;script&gt;'),'user text escaped in HTML');
+  check((await mailStatus()).counts.sent===1,'admin delivery status reflects acceptance');
+  await drainMail();check(sends.length===2,'sent notification cannot repeat');
+  const now=Date.now(),contract={version:'test',seller:{},terms:'Contract text'};
+  await db.prepare('INSERT INTO orders(id,number,session,status,customer,subtotal,shipping,total,consent,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind('order-test','SC-TEST','test','pending',JSON.stringify({name:'Customer',email:'customer@example.com'}),100,0,100,JSON.stringify(contract),now,now).run();
+  await db.prepare("UPDATE orders SET status='paid' WHERE id='order-test'").run();
+  check((await db.prepare('SELECT COUNT(*) AS n FROM mail_outbox').first()).n===1,'paid order queues customer email');
+  check((await db.prepare("SELECT COUNT(*) AS n FROM notification_outbox WHERE source_id='order-test'").first()).n===1,'paid order queues owner independently');
+  await db.prepare("UPDATE orders SET status='paid' WHERE id='order-test'").run();
+  await drainMail('order-test');
+  check(sends.length===4,'duplicate paid event sends exactly one email to each recipient');
+  console.log(JSON.stringify({ok:true,checks,scope:'SQLite notification triggers, delivery failures, retry claims, stable idempotency, HTML injection, customer/owner separation; provider mocked, no real emails'}));
+}finally{globalThis.fetch=originalFetch;delete globalThis.__mailFixture;client.close();}

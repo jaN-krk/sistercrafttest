@@ -8,9 +8,19 @@ Ana vitrin kenardan kenara uzanır; masaüstünde üst duyuru ve menüden kalan 
 
 Mağaza gerçek veritabanı kullanır. Başlangıç stoku, kullanıcının beyanına göre tüm ürünlerde sıfırdır. Fiyatlar 6 Eylül 2026 Trendyol satıcı sayfasından alınmıştır. İşletmeye ait canlı ödeme hesabı, doğrulanmış gönderici e-postası ve ticari/yasal bilgiler ortamda bulunmadığı için **sipariş kabulü kapalıdır**. Eksikleri uyduran veya ödeme başarılıymış gibi gösteren bir akış yoktur.
 
-**İnternet yayını henüz tamamlanmadı.** İlk özel yayın Sites veritabanı migration aşamasında `incomplete input: SQLITE_ERROR` hatasıyla durdu. Uzak servis uygulanmış/uygulanmamış migration sınırını göstermediği için veritabanı geçmişi değiştirilmedi ve aynı hata körlemesine tekrar denenmedi. V4 bu dosyaları değiştirmez; yönetim hesabı ve oturum kayıtları mevcut `settings` tablosunu kullanır. Üç migration yerel gerçek SQLite ve Wrangler üzerinde başarıyla uygulanır; hosting ayrıştırıcısıyla uyumsuzluk olasılığı vardır, kesin neden doğrulanmış değildir. Sites tarafından hatalı dosyanın ve uygulanmış migration kayıtlarının belirlenmesi gerekir.
+## Vercel ve Turso
 
-Planlanan ilk yayın yalnızca sahibine açıktır. iyzico callback/webhook sunucuları bu özel erişimden geçemez. Gerçek satış için hosting sorunu çözülmeli, işletme kurulumu tamamlanmalı ve site kamuya açık HTTPS erişime geçirilmelidir.
+Vercel için `npm run build:vercel`, Vinext uygulamasını Nitro Node sunucusu ve Build Output API biçiminde derler. `proxy.ts` güvenlik başlıklarını uygulamanın içinde işler. Yerel `npm run dev` Cloudflare D1/R2 ile çalışır.
+
+Üretimde Turso Marketplace bağlantısının sağladığı `TURSO_DATABASE_URL` ve `TURSO_AUTH_TOKEN` kullanılır. Dört SQL migration ilk bağlantıda tek transaction içinde uygulanır. SQL trigger'ları noktalı virgülden bölünmez; stok rezervasyonları ve bildirim kuyruğu atomiktir. Vercel Blob Marketplace bağlantısındaki `BLOB_STORE_ID` ve Vercel OIDC, ürün görsellerini kalıcı saklar. Sunucu anahtarları istemciye aktarılmaz.
+
+`APP_ORIGIN=https://sistercrafttest.vercel.app` ve `STORE_NOTIFICATION_EMAIL=ebr.krgl@gmail.com` ayarlanmalıdır. `.env.example` gerekli değişkenlerin adlarını listeler; gerçek değerleri Git'e eklemeyin.
+
+Stok bildirim kayıtları, iletişim/iade talepleri ve ödenmiş sipariş/kargo/teslim/iade olayları mağaza sahibine e-posta kuyruğu oluşturur. Müşteri sipariş bildirimleri ayrı kuyruğa kaydedilir. Resend için `RESEND_API_KEY` ile doğrulanmış `EMAIL_FROM` gerekir. Gmail alıcı olabilir; `vercel.app` alt alanı gönderici DNS doğrulaması için kullanılamaz. E-postalar hem HTML hem düz metin içerir. Sağlayıcı hatasında kayıtlar korunur; aynı idempotency anahtarı ve sabit içerikle 23 saat içinde yeniden denenir. Yönetim → Güvenlik ve açılış bölümünde durum ve yeniden deneme düğmesi bulunur. Daha eski belirsiz gönderimler, çift e-posta oluşmaması için sağlayıcı panelinden kontrol edilmelidir.
+
+Ödeme anahtarları, doğrulanmış gönderici, gerçek ticari bilgiler ve stoklar tamamlanmadan sipariş kabulü açılmaz. Müşteri hesap üyeliği bulunmaz; sipariş takibi ve stok bildirim kayıtları mevcuttur.
+
+Doğrulama: `node scripts/test-turso.mjs`, `node scripts/test-mail.mjs`, `node scripts/test-http.mjs`, `node node_modules/typescript/bin/tsc --noEmit`. HTTP testinin adresi `TEST_ORIGIN` ile değiştirilebilir. E-posta testleri gerçek SQLite üzerinde sahte sağlayıcı kullanır ve dışarıya e-posta göndermez.
 
 ## Yönetim
 

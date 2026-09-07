@@ -2,12 +2,15 @@ import { sites } from '@openai/sites-vite-plugin';
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
 import { defineConfig } from 'vite';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import hostingConfig from './.openai/hosting.json' with { type: 'json' };
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   '00000000-0000-4000-8000-000000000000';
 
 const { d1, r2 } = hostingConfig;
+const require = createRequire(import.meta.url);
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
@@ -35,6 +38,7 @@ const localBindingConfig = {
 };
 
 export default defineConfig(async () => {
+  const nodeTarget = process.env.VERCEL === '1' || !!process.env.NITRO_PRESET;
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= 'false';
@@ -42,10 +46,23 @@ export default defineConfig(async () => {
   process.env.MINIFLARE_REGISTRY_PATH ??= '.wrangler/registry';
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
-  const { cloudflare } = await import('@cloudflare/vite-plugin');
+  const platformPlugins = nodeTarget
+    ? [(await import('nitro/vite')).nitro({ preset: process.env.NITRO_PRESET || 'vercel' })]
+    : [sites(), (await import('@cloudflare/vite-plugin')).cloudflare({
+        viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
+        config: localBindingConfig,
+      })];
 
   return {
-    resolve: { dedupe: ['react', 'react-dom'] },
+    resolve: {
+      dedupe: ['react', 'react-dom'],
+      alias: {
+        '@store/runtime': fileURLToPath(new URL(nodeTarget ? './lib/runtime-node.ts' : './lib/runtime-cloudflare.ts', import.meta.url)),
+        'tailwindcss': require.resolve('tailwindcss/index.css'),
+        'tw-animate-css': fileURLToPath(new URL('./node_modules/tw-animate-css/dist/tw-animate.css', import.meta.url)),
+        'shadcn/tailwind.css': require.resolve('shadcn/tailwind.css'),
+      },
+    },
     optimizeDeps: { include: ['@base-ui/react/navigation-menu','embla-carousel-react','@base-ui/react/tooltip','@base-ui/react/separator','@base-ui/react/merge-props','@base-ui/react/use-render','@base-ui/react/toast','@base-ui/react/dialog','@base-ui/react/accordion','@base-ui/react/tabs','@base-ui/react/select','@base-ui/react/checkbox','@base-ui/react/switch','@base-ui/react/alert-dialog'] },
     css: { postcss: { plugins: [tailwindcss()] } },
     server: isCodexSeatbeltSandbox
@@ -53,11 +70,7 @@ export default defineConfig(async () => {
       : undefined,
     plugins: [
       vinext(),
-      sites(),
-      cloudflare({
-        viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
-        config: localBindingConfig,
-      }),
+      ...platformPlugins,
     ],
   };
 });
