@@ -3,24 +3,33 @@ import {money} from './catalog';
 import type {Order} from './commerce';
 import {emailTemplate} from './email-template';
 import {siteOrigin} from './site-origin';
+import {mailConfig} from './mail-config';
 
-type Payload = {from:string;to:string[];subject:string;text:string;html:string;reply_to?:string};
+type Payload = {from:string;to:string[];subject:string;text:string;html:string;reply_to?:string;_provider?:'resend'|'mailersend'};
 type MailRow = {id:string;order_id?:string;source_id?:string;kind:string;payload:string|null};
 const labels:Record<string,string> = {paid:'Siparişini aldık',shipped:'Siparişin yola çıktı',delivered:'Sipariş teslim edildi',refunded:'Ödemen iade edildi'};
 const ownerLabels:Record<string,string> = {paid:'Yeni ödenmiş sipariş',shipped:'Sipariş kargoya verildi',delivered:'Sipariş teslim edildi',refunded:'Ödeme iade edildi'};
 function message(to:string,title:string,text:string,owner:boolean,replyTo?:string):Payload {
-  return {from:String(runtime().EMAIL_FROM),to:[to],subject:'SisterCraft&Co — '+title,text,
+  return {from:mailConfig().from,_provider:mailConfig().provider,to:[to],subject:'SisterCraft&Co — '+title,text,
     html:emailTemplate(title,text,siteOrigin+(owner?'/yonetim':'/siparisler'),owner?'Yönetim panelini aç':'Siparişlerimi görüntüle'),
     ...(replyTo?{reply_to:replyTo}:{})};
 }
 async function payload(row:MailRow,owner:boolean):Promise<Payload|null> {
   const target=String(runtime().STORE_NOTIFICATION_EMAIL||'');
   if(owner&&!target)return null;
-  if(owner&&row.kind==='request') {
+  if(owner&&row.kind==='test')return message(target,'Test e-postası','Merhaba,\n\nSisterCraft&Co bildirim bağlantın çalışıyor. Yeni talepler ve sipariş bildirimleri için bu adres kullanılacak.\n\nBu bir test mesajıdır; sipariş veya ödeme oluşturulmadı.',true);
+  if(owner&&(row.kind==='request'||row.kind==='request_received')) {
     const request=await db().prepare('SELECT * FROM requests WHERE id=?').bind(row.source_id).first<{email:string;kind:string;body:string;product_id:string|null}>();
     if(!request)return null;
     const details=JSON.parse(request.body);
     const product=request.product_id?await db().prepare('SELECT data FROM products WHERE id=?').bind(request.product_id).first<{data:string}>():null;
+    if(row.kind==='request_received') {
+      const title=request.kind==='stock'?'Stok haberi talebini aldık':request.kind==='return'?'İade talebini aldık':'Mesajını aldık';
+      const body=[`Merhaba ${details.name||''},`, '',request.kind==='stock'?'Stok haberi isteğin kaydedildi.':'Talebin mağazamıza ulaştı. Ekibimiz inceleyerek sana dönüş yapacak.',...(product?[`Ürün: ${JSON.parse(product.data).name}`]:[]),'','SisterCraft&Co'].join('\n');
+      const result=message(request.email,title,body,false,target);
+      result.html=emailTemplate(title,body,siteOrigin+'/iletisim','Bize ulaş');
+      return result;
+    }
     const title=request.kind==='stock'?'Yeni stok bildirim kaydı':request.kind==='return'?'Yeni iade talebi':'Yeni iletişim mesajı';
     return message(target,title,[`Gönderen: ${details.name||'İsim belirtilmedi'}`,`E-posta: ${request.email}`,
       ...(product?[`Ürün: ${JSON.parse(product.data).name}`]:[]),...(details.orderNumber?[`Sipariş: ${details.orderNumber}`]:[]),
@@ -55,22 +64,53 @@ async function drainQueue(table:'mail_outbox'|'notification_outbox',orderId?:str
       // Freeze recipients and content so retries use the identical provider request.
       const value=row.payload||JSON.stringify(await payload(row,owner));
       if(value==='null')continue;
+      const frozen=JSON.parse(value) as Payload;
+      // Legacy frozen payloads belong to Resend. Never switch providers on a retry.
+      const provider=frozen._provider||'resend',config=mailConfig();
+      if(provider!==config.provider)continue;
+      if(config.testMode&&!frozen.to.every(to=>config.recipients.includes(to.toLowerCase()))) {
+        await db().prepare(`UPDATE ${table} SET status='blocked',payload=COALESCE(payload,?),updated_at=? WHERE id=? AND status='ready'`).bind(value,now,row.id).run();
+        continue;
+      }
+      // MailerSend has no documented idempotency contract; never resend an uncertain claim.
+      if(provider==='mailersend') {
+        await db().prepare(`UPDATE ${table} SET status='review',updated_at=? WHERE id=? AND status='sending' AND updated_at<?`).bind(now,row.id,now-60000).run();
+      }
       const claimed=await db().prepare(`UPDATE ${table} SET status='sending',payload=COALESCE(payload,?),first_attempt=COALESCE(first_attempt,?),updated_at=? WHERE id=? AND (status='ready' OR (status='sending' AND updated_at<? AND first_attempt>?)) RETURNING payload`)
         .bind(value,now,now,row.id,now-60000,now-23*3600000).first<{payload:string}>();
       if(!claimed)continue;
-      const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+runtime().RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':'sistercraft/'+table+'/'+row.id},body:claimed.payload,signal:AbortSignal.timeout(10000)});
-      if(!response.ok) {console.warn('Email provider rejected notification',{status:response.status});continue;}
-      const result=await response.json() as {id?:string};
-      if(!result.id)continue;
-      await db().prepare(`UPDATE ${table} SET status='sent',provider_id=?,updated_at=? WHERE id=?`).bind(result.id,Date.now(),row.id).run();
+      const {_provider,...content}=JSON.parse(claimed.payload) as Payload;
+      const address=(value:string)=>{const match=value.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);return match?{email:match[2],name:match[1]||'SisterCraft&Co'}:{email:value};};
+      const body=provider==='resend'?content:{from:address(content.from),to:content.to.map(address),subject:content.subject,html:content.html,text:content.text,settings:{track_opens:false,track_clicks:false,track_content:false},...(content.reply_to?{reply_to:address(content.reply_to)}:{})};
+      const response=await fetch(provider==='resend'?'https://api.resend.com/emails':'https://api.mailersend.com/v1/email',{method:'POST',headers:{Authorization:'Bearer '+config.key,'Content-Type':'application/json',...(provider==='resend'?{'Idempotency-Key':'sistercraft/'+table+'/'+row.id}:{})},body:JSON.stringify(body),signal:AbortSignal.timeout(10000)});
+      if(!response.ok) {
+        if(provider==='mailersend')await db().prepare(`UPDATE ${table} SET status='review',updated_at=? WHERE id=?`).bind(Date.now(),row.id).run();
+        console.warn('Email provider rejected notification',{status:response.status});continue;
+      }
+      const id=provider==='mailersend'?response.headers.get('x-message-id'):(await response.json() as {id?:string}).id;
+      if(provider==='mailersend'&&(!id||response.headers.get('x-send-paused')==='true')) {
+        await db().prepare(`UPDATE ${table} SET status='review',provider_id=?,updated_at=? WHERE id=?`).bind(id||null,Date.now(),row.id).run();
+        continue;
+      }
+      if(!id)continue;
+      await db().prepare(`UPDATE ${table} SET status='sent',provider_id=?,updated_at=? WHERE id=?`).bind(id,Date.now(),row.id).run();
       sent++;
     } catch {console.warn('Email notification remains queued');}
   }
   return sent;
 }
 export async function drainMail(orderId?:string) {
-  const e=runtime();
-  if(!e.RESEND_API_KEY||!e.EMAIL_FROM)return{sent:0,pending:true};
+  const config=mailConfig();
+  if(!config.configured)return{sent:0,pending:true};
+  for(const table of ['notification_outbox','mail_outbox'] as const) {
+    const waiting=await db().prepare(`SELECT id,payload FROM ${table} WHERE status='blocked' LIMIT 100`).all<{id:string;payload:string}>();
+    for(const row of waiting.results) {
+      const frozen=JSON.parse(row.payload) as Payload;
+      if((frozen._provider||'resend')===config.provider&&(!config.testMode||frozen.to.every(to=>config.recipients.includes(to.toLowerCase())))) {
+        await db().prepare(`UPDATE ${table} SET status='ready',updated_at=? WHERE id=? AND status='blocked'`).bind(Date.now(),row.id).run();
+      }
+    }
+  }
   let sent=await drainQueue('notification_outbox',orderId);
   sent+=await drainQueue('mail_outbox',orderId);
   return{sent};
@@ -78,5 +118,6 @@ export async function drainMail(orderId?:string) {
 export async function mailStatus() {
   const e=runtime();
   const rows=await db().prepare("SELECT status,COUNT(*) AS count FROM (SELECT status FROM mail_outbox UNION ALL SELECT status FROM notification_outbox) GROUP BY status").all<{status:string;count:number}>();
-  return{configured:!!(e.RESEND_API_KEY&&e.EMAIL_FROM),recipient:e.STORE_NOTIFICATION_EMAIL||'',counts:Object.fromEntries(rows.results.map(r=>[r.status,r.count]))};
+  const config=mailConfig();
+  return{configured:config.configured,provider:config.provider,testMode:config.testMode,recipient:e.STORE_NOTIFICATION_EMAIL||'',counts:Object.fromEntries(rows.results.map(r=>[r.status,r.count]))};
 }

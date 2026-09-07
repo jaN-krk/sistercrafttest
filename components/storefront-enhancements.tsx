@@ -1,11 +1,11 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {usePathname,useRouter} from 'next/navigation';
+import {usePathname,useRouter,useSearchParams} from 'next/navigation';
 import {ArrowLeft,ArrowRight,ArrowUpRight,ShoppingBag,Menu,Search,X,UserRound,Plus,Pause,Play,Leaf,ChevronDown} from 'lucide-react';
 import {Carousel,CarouselContent,CarouselItem,type CarouselApi} from '@/components/ui/carousel';
 import {NavigationMenu,NavigationMenuList,NavigationMenuItem,NavigationMenuTrigger,NavigationMenuContent,NavigationMenuLink} from '@/components/ui/navigation-menu';
-import {Sheet,SheetContent,SheetTitle,SheetDescription} from '@/components/ui/sheet';
+import {Sheet,SheetContent,SheetTitle,SheetDescription,SheetClose} from '@/components/ui/sheet';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
 import {useShop} from './shop-context';
@@ -18,7 +18,12 @@ export function LanguageSwitch(){const{locale,setLocale}=useLanguage();return <d
 export function StoreHeader(){
   const {cart,setCartOpen,products,config}=useShop(),{locale,t,format}=useLanguage();
   const [menu,setMenu]=useState(false),[search,setSearch]=useState(false),[query,setQuery]=useState(''),[scrolled,setScrolled]=useState(false);
-  const path=usePathname(),router=useRouter();
+  const path=usePathname(),router=useRouter(),params=useSearchParams();
+  const [categoryMenu,setCategoryMenu]=useState<string|null>(null);
+  const category=params.get('kategori');
+  const active=(id:string)=>['/magaza','/koleksiyon'].includes(path)&&(category||'tumu')===id;
+  useEffect(()=>{setCategoryMenu(null);setMenu(false);setSearch(false)},[path,category]);
+  useEffect(()=>{const media=matchMedia('(min-width: 961px)');const changed=()=>{setMenu(false);setCategoryMenu(null)};media.addEventListener('change',changed);return()=>media.removeEventListener('change',changed)},[]);
   useEffect(()=>{setMenu(false);setSearch(false)},[path]);
   useEffect(()=>{const handler=()=>setScrolled(window.scrollY>15);handler();window.addEventListener('scroll',handler,{passive:true});return()=>window.removeEventListener('scroll',handler)},[]);
   if(path.startsWith('/yonetim'))return null;
@@ -27,18 +32,28 @@ export function StoreHeader(){
     <div className="announcement">{locale==='tr'?config.merchandising.announcementTr:config.merchandising.announcementEn}</div>
     <header className={'site-header upgraded-header commerce-header '+(scrolled?'is-scrolled':'')}>
       <div className="header-main">
-        <button className="icon-button mobile-menu" aria-label={t('Menüyü aç','Open menu')} onClick={()=>setMenu(true)}><Menu size={21}/></button>
+        <button className="icon-button mobile-menu" aria-label={t('Menüyü aç','Open menu')} aria-expanded={menu} aria-controls={menu?'store-mobile-menu':undefined} onClick={()=>setMenu(true)}><Menu size={21}/></button>
         <Link href="/" className="wordmark">sistercraft<span>&co.</span></Link>
         <button className="header-search" onClick={()=>setSearch(true)}><Search size={19}/><span>{t('Ürün, koku veya ritüel ara…','Search products, scents or rituals…')}</span><span className="search-hint">{t('Keşfet','Discover')}</span></button>
         <div className="header-tools"><LanguageSwitch/><button className="icon-button mobile-search" onClick={()=>setSearch(true)} aria-label={t('Ürün ara','Search products')}><Search size={20}/></button><Link className="header-account" href="/siparisler"><UserRound size={21}/><span>{t('Siparişlerim','My orders')}</span></Link><button className="header-bag" onClick={()=>setCartOpen(true)} aria-label={t('Sepetim','My bag')+` (${cart?.count??0})`}><ShoppingBag size={21}/><span>{t('Sepetim','My bag')}<small>{cart?.count?format(cart.total):t('Ritüelini seç','Find your ritual')}</small></span><b>{cart?.count??0}</b></button></div>
       </div>
       <nav className="commerce-nav" aria-label={t('Mağaza menüsü','Store navigation')}>
-        <Link className="shop-nav-link" href="/magaza" aria-current={['/magaza','/koleksiyon'].includes(path)?'page':undefined}>{t('Mağaza','Shop')}<ArrowUpRight size={15}/></Link>
-        <div className="desktop-navigation"><NavigationMenu><NavigationMenuList><NavigationMenuItem><NavigationMenuTrigger>{t('Kategoriler','Categories')}</NavigationMenuTrigger><NavigationMenuContent><div className="mega-menu"><div className="mega-links"><span className="eyebrow">{t('RİTÜELİNİ KEŞFET','FIND YOUR RITUAL')}</span>{categories.map(c=><NavigationMenuLink key={c.id} render={<Link href={'/magaza'+(c.id==='tumu'?'':'?kategori='+c.id)}/>}>{t(c.name)}<ArrowUpRight size={17}/></NavigationMenuLink>)}</div><Link href="/urun/992963569" className="mega-feature"><img src="/editorial/category-ritual-v4.webp" alt={t('Ritüel Kutusu','Ritual Box')}/><span>{t('Bir kutu dolusu ritüel','A box of little rituals')}<ArrowUpRight size={17}/></span></Link></div></NavigationMenuContent></NavigationMenuItem></NavigationMenuList></NavigationMenu></div>
-        <Link href="/magaza?kategori=tutsuler">{t('Tütsüler','Incense')}</Link><Link href="/magaza?kategori=mumlar">{t('Mumlar','Candles')}</Link><Link href="/magaza?kategori=kutular">{t('Hediye kutuları','Gift boxes')}</Link><Link href="/hikayemiz" className="nav-story">{t('Hikâyemiz','Our story')}</Link><Link href="/sss" className="nav-help">{t('Yardım ve destek','Help & support')}<ArrowUpRight size={14}/></Link>
+        <Link className="shop-nav-link" href="/magaza" aria-current={active('tumu')?'page':undefined}>{t('Mağaza','Shop')}<ArrowUpRight size={15}/></Link>
+        <div className="desktop-navigation"><NavigationMenu value={categoryMenu} onValueChange={setCategoryMenu}><NavigationMenuList><NavigationMenuItem value="categories"><NavigationMenuTrigger>{t('Kategoriler','Categories')}</NavigationMenuTrigger><NavigationMenuContent><div className="mega-menu"><div className="mega-links"><span className="eyebrow">{t('RİTÜELİNİ KEŞFET','FIND YOUR RITUAL')}</span>{categories.map(c=><NavigationMenuLink key={c.id} active={active(c.id)} onClick={()=>setCategoryMenu(null)} render={<Link href={'/magaza'+(c.id==='tumu'?'':'?kategori='+c.id)}/>}>{t(c.name)}<ArrowUpRight size={17}/></NavigationMenuLink>)}</div><Link href="/urun/992963569" className="mega-feature" onClick={()=>setCategoryMenu(null)}><img src="/editorial/category-ritual-v4.webp" alt={t('Ritüel Kutusu','Ritual Box')}/><span>{t('Bir kutu dolusu ritüel','A box of little rituals')}<ArrowUpRight size={17}/></span></Link></div></NavigationMenuContent></NavigationMenuItem></NavigationMenuList></NavigationMenu></div>
+        <Link href="/magaza?kategori=tutsuler" aria-current={active('tutsuler')?'page':undefined}>{t('Tütsüler','Incense')}</Link><Link href="/magaza?kategori=mumlar" aria-current={active('mumlar')?'page':undefined}>{t('Mumlar','Candles')}</Link><Link href="/magaza?kategori=kutular" aria-current={active('kutular')?'page':undefined}>{t('Hediye kutuları','Gift boxes')}</Link><Link href="/hikayemiz" className="nav-story">{t('Hikâyemiz','Our story')}</Link><Link href="/sss" className="nav-help">{t('Yardım ve destek','Help & support')}<ArrowUpRight size={14}/></Link>
       </nav>
     </header>
-    <Sheet open={menu} onOpenChange={setMenu}><SheetContent side="left" className="menu-sheet"><SheetTitle className="wordmark">sistercraft&co.</SheetTitle><SheetDescription>{t('Gününe eşlik edecek küçük ritüeller.','Little rituals for your everyday.')}</SheetDescription><LanguageSwitch/><nav><Link href="/magaza" onClick={()=>setMenu(false)}>{t('Mağaza','Shop')}<ArrowUpRight size={18}/></Link>{categories.filter(c=>c.id!=='tumu').map(c=><Link key={c.id} href={'/magaza?kategori='+c.id} onClick={()=>setMenu(false)}>{t(c.name)}<ArrowUpRight size={18}/></Link>)}{[['hikayemiz','Hikâyemiz','Our story'],['gunluk','Ritüel günlüğü','Journal'],['siparisler','Siparişlerim','My orders'],['iletisim','İletişim','Contact']].map(([url,tr,en])=><Link key={url} href={'/'+url}>{t(tr,en)}</Link>)}</nav></SheetContent></Sheet>
+    <Sheet open={menu} onOpenChange={setMenu}><SheetContent id="store-mobile-menu" side="left" className="menu-sheet store-menu" showCloseButton={false}>
+      <div className="store-menu-heading"><SheetTitle className="wordmark">sistercraft&co.</SheetTitle><SheetClose className="icon-button" aria-label={t('Menüyü kapat','Close menu')}><X size={21}/></SheetClose></div>
+      <SheetDescription>{t('Gününe eşlik edecek küçük ritüeller.','Little rituals for your everyday.')}</SheetDescription>
+      <button className="store-menu-search" onClick={()=>{setMenu(false);setSearch(true)}}><Search size={18}/>{t('Koleksiyonda ara','Search the collection')}<ArrowRight size={16}/></button>
+      <nav aria-label={t('Mobil mağaza menüsü','Mobile store navigation')} onClick={e=>{if((e.target as HTMLElement).closest('a'))setMenu(false)}}>
+        <span className="eyebrow">{t('KOLEKSİYONU KEŞFET','EXPLORE THE COLLECTION')}</span>
+        {categories.map(c=><Link key={c.id} href={'/magaza'+(c.id==='tumu'?'':'?kategori='+c.id)} aria-current={active(c.id)?'page':undefined}>{c.id==='tumu'?t('Tüm koleksiyon','All products'):t(c.name)}<ArrowUpRight size={18}/></Link>)}
+        <span className="eyebrow store-menu-divider">{t('SISTERCRAFT DÜNYASI','THE SISTERCRAFT WORLD')}</span>
+        {[['hikayemiz','Hikâyemiz','Our story'],['gunluk','Ritüel günlüğü','Journal'],['siparisler','Siparişlerim','My orders'],['sss','Yardım ve destek','Help & support'],['iletisim','İletişim','Contact']].map(([url,tr,en])=><Link key={url} href={'/'+url} aria-current={path==='/'+url?'page':undefined}>{t(tr,en)}<ArrowUpRight size={16}/></Link>)}
+      </nav><div className="store-menu-footer"><span>{t('Dil / Para birimi','Language / Currency')}</span><LanguageSwitch/></div>
+    </SheetContent></Sheet>
     <Dialog open={search} onOpenChange={setSearch}><DialogContent className="search-dialog enhanced-search"><DialogTitle>{t('Küçük bir keşfe çık.','Find your next little ritual.')}</DialogTitle><DialogDescription>{t('Koku, ürün veya koleksiyon ara.','Search by scent, product or collection.')}</DialogDescription><form className="search-form" onSubmit={e=>{e.preventDefault();setSearch(false);router.push('/magaza?ara='+encodeURIComponent(query))}}><Input autoFocus value={query} maxLength={100} onChange={e=>setQuery(e.target.value)} aria-label={t('Ürün ara','Search products')} placeholder={t('Vanilya, adaçayı, mum…','Vanilla, sage, candles…')}/><button className="button" aria-label={t('Ara','Search')}><ArrowRight size={19}/></button></form><div className="instant-results">{found.map(p=><Link key={p.id} href={'/urun/'+p.id} onClick={()=>setSearch(false)}><img src={p.images[0]} alt=""/><span>{p.name}<small>{format(p.priceCents)}</small></span><ArrowUpRight size={17}/></Link>)}{!found.length&&<p>{t('Eşleşen ürün bulunamadı.','No matching products.')}</p>}</div></DialogContent></Dialog>
   </Localized>;
 }

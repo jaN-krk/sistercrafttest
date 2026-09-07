@@ -46,5 +46,27 @@ try {
   await db.prepare("UPDATE orders SET status='paid' WHERE id='order-test'").run();
   await drainMail('order-test');
   check(sends.length===4,'duplicate paid event sends exactly one email to each recipient');
+  Object.assign(globalThis.__mailFixture,{EMAIL_PROVIDER:'mailersend',MAILERSEND_API_KEY:'test-only',EMAIL_FROM:'SisterCraft <hello@trial.example>',EMAIL_TEST_MODE:'true',EMAIL_TEST_RECIPIENTS:'owner@example.com',STORE_NOTIFICATION_EMAIL:'owner@example.com'});
+  globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.mailersend.com/v1/email');sends.push(options);return new Response(null,{status:202,headers:{'x-message-id':'mailersend-test-id'}})};
+  await db.prepare('INSERT INTO notification_outbox(id,source_id,kind,updated_at) VALUES(?,?,?,?)').bind('ms-test','ms-test','test',Date.now()).run();
+  check((await drainMail('ms-test')).sent===1,'MailerSend empty 202 body with message ID is accepted');
+  const msBody=JSON.parse(sends.at(-1).body);
+  check(msBody.from.email==='hello@trial.example'&&msBody.to[0].email==='owner@example.com','MailerSend address object format');
+  check(!('_provider' in msBody),'internal provider metadata never sent');
+  await db.prepare('INSERT INTO notification_outbox(id,source_id,kind,updated_at) VALUES(?,?,?,?)').bind('receipt-test','request-test','request_received',Date.now()).run();
+  await drainMail('request-test');
+  check((await db.prepare("SELECT status FROM notification_outbox WHERE id='receipt-test'").first()).status==='blocked','sandbox cannot relay email to arbitrary customers');
+  globalThis.__mailFixture.EMAIL_TEST_RECIPIENTS+=' ,customer@example.com';
+  await db.prepare("UPDATE notification_outbox SET status='ready' WHERE id='receipt-test'").run();
+  await drainMail('request-test');
+  check(JSON.parse(sends.at(-1).body).to[0].email==='customer@example.com','customer receipt goes only to the customer');
+  check(JSON.parse(sends.at(-1).body).subject.includes('Mesajını aldık'),'customer receipt has its own message');
+  await db.prepare('INSERT INTO notification_outbox(id,source_id,kind,updated_at) VALUES(?,?,?,?)').bind('ms-timeout','ms-timeout','test',Date.now()).run();
+  globalThis.fetch=async()=>{throw new Error('unknown network outcome')};
+  await drainMail('ms-timeout');
+  await db.prepare("UPDATE notification_outbox SET updated_at=? WHERE id='ms-timeout'").bind(Date.now()-61000).run();
+  let retried=false;globalThis.fetch=async()=>{retried=true;return new Response(null,{status:202})};
+  await drainMail('ms-timeout');
+  check(!retried&&(await db.prepare("SELECT status FROM notification_outbox WHERE id='ms-timeout'").first()).status==='review','ambiguous MailerSend sends are never automatically repeated');
   console.log(JSON.stringify({ok:true,checks,scope:'SQLite notification triggers, delivery failures, retry claims, stable idempotency, HTML injection, customer/owner separation; provider mocked, no real emails'}));
 }finally{globalThis.fetch=originalFetch;delete globalThis.__mailFixture;client.close();}
