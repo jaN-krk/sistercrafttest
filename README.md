@@ -2,7 +2,7 @@
 
 20 gerçek Trendyol ürününden oluşan Türkçe/İngilizce mağaza. 37 orijinal fotoğraf, ürün referanslarından oluşturulmuş üç vitrin çekimi ve üç ayrı AI kategori fotoğrafı, arama/filtreleme, sunucuda kalıcı sepet ve şifreli yönetim paneli içerir. Beyaz ve koyu yeşil tasarım; iki sıralı blurlu sabit alışveriş menüsü, mobil menü, kontrollü animasyonlar ve erişilebilir etkileşimlerle tamamlanmıştır.
 
-V4 ana vitrinin masaüstü yüksekliğini 430–540 px aralığıyla sınırlar; mobilde başlık ve ürün fotoğrafı ayrı, ölçülü alanlardadır. Menüde Mağaza, ürün kategorileri, arama, dil seçimi, Siparişlerim ve sepet bulunur. `/magaza` mağaza girişidir; mevcut `/koleksiyon` bağlantıları da çalışır. Ürün ayrıntısında orijinal fotoğraf doğal en/boy oranıyla, sarı yan dolgu olmadan gösterilir. Kategori kartlarında fotoğrafın altındaki ayrı başlık alanı ürünlerin üzerini kapatmaz.
+Ana vitrin kenardan kenara uzanır; masaüstünde üst duyuru ve menüden kalan ekran yüksekliğini doldurur (en az 640 px). Büyük başlık, tam boy ürün fotoğrafı ve fotoğraf üzerinde ürün kartı kullanır. Mobilde başlık ve geniş ürün fotoğrafı okunaklı bir dikey düzende sıralanır. Menüde Mağaza, ürün kategorileri, arama, dil seçimi, Siparişlerim ve sepet bulunur. `/magaza` mağaza girişidir; mevcut `/koleksiyon` bağlantıları da çalışır. Ürün ayrıntısında orijinal fotoğraf doğal en/boy oranıyla, sarı yan dolgu olmadan gösterilir. Kategori kartlarında fotoğrafın altındaki ayrı başlık alanı ürünlerin üzerini kapatmaz.
 
 ## Teslim edilen durum
 
