@@ -185,3 +185,7 @@
 @media(max-width:700px){.customer-header-links{display:none}.customer-page{display:block;min-height:auto}.customer-story{padding:26px 7%;gap:20px}.customer-story>.wordmark,.customer-story>a:last-child,.customer-story p,.customer-story-note{display:none}.customer-story h2{font-size:29px;margin:12px 0 0;white-space:normal;max-width:310px}.customer-story .eyebrow{font-size:8px}.customer-panel{padding:36px 7% 50px}.customer-form-inner{max-width:440px}.customer-form-inner h1{font-size:29px}.customer-form input:not([type=checkbox]),.customer-security input{font-size:16px}.customer-symbol{margin-bottom:20px}}
 
 .customer-success{display:block}
+
+.payment-readiness{margin-bottom:24px;padding:24px}.payment-readiness h2{display:flex;align-items:center;gap:10px;font-size:19px}.payment-readiness p,.payment-readiness li{font-size:12px;line-height:1.9}.payment-readiness ul{padding-left:18px;margin:16px 0}.payment-readiness .button{font-size:12px;margin-top:12px}.payment-check-result{display:block;margin-top:18px;color:#3c6339;font-size:12px;line-height:1.8}
+
+.shipping-carrier{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:18px 0;margin-bottom:14px;border-bottom:1px solid #e1e7d9}.shipping-carrier img{width:130px;height:auto;max-height:34px;object-fit:contain}.shipping-carrier span{font-size:12px;color:#687b5b}

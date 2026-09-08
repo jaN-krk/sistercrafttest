@@ -39,6 +39,7 @@ try{
   ok((await b.call('account/register',{name:'Other',email:'a@example.com',password:next,privacy:true})).status===409,'duplicate cannot overwrite account');
   const bid=(await b.call('account/register',{name:'Second Customer',email:'b@example.com',password:secret,privacy:true})).data.customer.id;
   for(const path of ['admin','admin/customers','admin/analytics','admin/auth/sessions'])ok((await a.call(path)).status===401,'customer cannot access '+path);
+  ok((await a.call('admin/payment/check',{})).status===401,'customer cannot use provider credentials through admin diagnostic');
   const atoken=a.jar.get('__Host-sc_customer'),originalB=b.jar.get('__Host-sc_customer');b.jar.set('__Host-sc_customer',atoken);ok((await b.call('account')).data.customer===null,'stolen customer token needs original browser');b.jar.set('__Host-sc_customer',originalB);
   const now=Date.now(),browserA=hash(a.jar.get('sc_session')),browserB=hash(b.jar.get('sc_session'));
   for(const [id,owner,session,email] of [['a-order',aid,browserA,'a@example.com'],['b-order',bid,browserB,'b@example.com'],['old-guest',null,'elsewhere','a@example.com']])await db.prepare('INSERT INTO orders(id,number,session,customer_id,status,customer,subtotal,shipping,total,consent,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,'SC-2026-'+id,session,owner,'paid',JSON.stringify({name:'Fixture',email}),100,0,100,'{}',now,now).run();

@@ -149,3 +149,10 @@ Orders created while signed in store `customer_id`; account access is never infe
 Welcome and owner registration notifications use the existing outbox. Reset links are single-use, expire after 30 minutes, and keep their token in the URL fragment rather than server URL logs; only token hashes are stored in the token table. The email payload necessarily contains the delivered link. Recovery requests are unavailable for recipients blocked by the configured test sender; the UI states this limitation. Configure an authenticated live sender to support recovery for all customers. Do not disable the email test recipient guard as a workaround. Existing maintenance clears expired customer sessions/reset records.
 
 Run `node scripts/test-customer-auth.mjs` for isolated real SQLite + route + KDF checks with mocked outbound email, alongside `node scripts/test-mail.mjs`, `node scripts/test-turso.mjs`, TypeScript and the Vercel build. No test script creates production customers or sends real emails.
+
+
+### Live payment connection check
+
+The owner-only `POST /api/admin/payment/check` uses iyzico's documented BIN metadata endpoint and a public example BIN to validate signed server requests. It never creates a payment and never marks `IYZICO_VERIFIED` true. Provider errors are reduced to numeric codes, never raw responses. The Settings page exposes this diagnostic and missing launch fields. Payment requests reject redirects and invalid mode names; returned checkout URLs reject embedded credentials and nonstandard ports. Account, order, admin and API routes disallow framing and suppress referrers.
+
+The Yurtiçi Kargo logo in `public/brands/yurtici-kargo.svg` comes from `https://www.yurticikargo.com/web_files/yurtici-kargo/assets/img/logo.svg` and is displayed to identify the owner-selected shipping carrier. No shipping API or label purchasing has been connected.

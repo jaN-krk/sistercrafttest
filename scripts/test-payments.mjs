@@ -13,7 +13,7 @@ for(const invalid of ['1e3','NaN','1.009','-1']){assert.throws(()=>sec.toCents(i
 check(sec.normalizedMoney('50.00')==='50'&&sec.normalizedMoney('10.50')==='10.5','provider amount normalization');
 let captured;globalThis.fetch=async(url,options)=>{captured={url,options};return new Response(JSON.stringify({status:'success'}),{status:200});};
 await iyzi.iyzico('/payment/iyzipos/checkoutform/initialize/auth/ecom',{locale:'tr',price:'10.50',name:'Çağrı'});
-const {options,url}=captured;const random=options.headers['x-iyzi-rnd'];const decoded=Buffer.from(options.headers.Authorization.slice(8),'base64').toString();
+const {options,url}=captured;check(options.redirect==='error','payment requests cannot follow redirects');const random=options.headers['x-iyzi-rnd'];const decoded=Buffer.from(options.headers.Authorization.slice(8),'base64').toString();
 check(url.startsWith('https://sandbox-api.iyzipay.com/'),'sandbox endpoint separation');
 check(decoded===`apiKey:unit-test-key&randomKey:${random}&signature:${mac(random+'/payment/iyzipos/checkoutform/initialize/auth/ecom'+options.body)}`,'request signs exact UTF8 JSON payload');
 await iyzi.verifyResponse({conversationId:'order',token:'token',signature:mac('order:token')},'init');checks++;
@@ -22,10 +22,17 @@ const detail={paymentStatus:'SUCCESS',paymentId:'12',currency:'TRY',basketId:'ba
 await iyzi.verifyResponse(detail,'detail');checks++;
 await assert.rejects(()=>iyzi.verifyResponse({...detail,paidPrice:'0.01'},'detail'));checks++;
 await iyzi.verifyResponse({paymentId:'12',price:'10.50',currency:'TRY',conversationId:'refund',signature:mac('12:10.5:TRY:refund')},'refund');checks++;
-for(const bad of ['http://iyzico.com/pay','https://iyzico.com.evil.example/pay','javascript:alert(1)']){assert.throws(()=>iyzi.checkoutUrl(bad));checks++;}
+for(const bad of ['http://iyzico.com/pay','https://iyzico.com.evil.example/pay','javascript:alert(1)','https://name:secret@cpp.iyzipay.com/pay','https://cpp.iyzipay.com:444/pay']){assert.throws(()=>iyzi.checkoutUrl(bad));checks++;}
 check(iyzi.checkoutUrl('https://cpp.iyzipay.com/pay')==='https://cpp.iyzipay.com/pay','provider HTTPS allowlist');
 const payload={iyziEventType:'CHECKOUT_FORM_AUTH',iyziPaymentId:'12',token:'token',paymentConversationId:'order',status:'SUCCESS'};
 const signature=mac('unit-test-secretCHECKOUT_FORM_AUTH12tokenorderSUCCESS');
 await iyzi.verifyWebhook(new Request('https://site.example/api/payments/webhook',{headers:{'x-iyz-signature-v3':signature}}),payload);checks++;
 await assert.rejects(()=>iyzi.verifyWebhook(new Request('https://site.example/api/payments/webhook',{headers:{'x-iyz-signature-v3':'0'.repeat(64)}}),payload));checks++;
+globalThis.fetch=async(url,options)=>{check(url.endsWith('/payment/bin/check'),'connection check only calls BIN metadata endpoint');const body=JSON.parse(options.body);return Response.json({status:'success',binNumber:body.binNumber,conversationId:body.conversationId});};
+check((await iyzi.checkIyzicoCredentials()).charged===false,'connection check never claims payment verification');
+globalThis.fetch=async()=>Response.json({status:'failure',errorCode:'11',errorMessage:'secret must never be echoed'});
+await assert.rejects(()=>iyzi.checkIyzicoCredentials(),error=>!error.message.includes('secret must never')&&error.message.includes('11'));checks++;
+globalThis.fetch=async()=>Response.json({status:'success',binNumber:'41579200',conversationId:'wrong'});
+await assert.rejects(()=>iyzi.checkIyzicoCredentials());checks++;
+globalThis.__testEnv.IYZICO_MODE='lve';await assert.rejects(()=>iyzi.iyzico('/payment/bin/check',{}));checks++;
 console.log(JSON.stringify({ok:true,checks,network:'All provider calls stubbed; no charge, no credentials, no external request.'},null,2));
