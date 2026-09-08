@@ -1,5 +1,4 @@
 import {clientIp} from './client-ip';
-import {mailConfig} from './mail-config';
 import {env} from '@store/runtime';
 import {initialProducts,defaultSettings,type Product,type StoreSettings,type PublicConfig} from './catalog';
 import {assert,randomToken,sha,timingEqual,HttpError} from './security';
@@ -7,9 +6,11 @@ export const runtime=()=>env as unknown as Record<string,string|D1Database|undef
 export function db(){const value=env.DB;assert(value,503,'Mağaza kısa süre içinde yeniden hazır olacak.');return value;}
 export async function getProducts():Promise<Product[]>{const database=db();let rows=await database.prepare('SELECT * FROM products').all<{id:string;data:string;price:number;stock:number;active:number}>();if(rows.results.length<initialProducts.length){await database.batch(initialProducts.map(p=>database.prepare('INSERT INTO products (id,data,price,stock,active,updated_at) VALUES (?,?,?,0,1,?) ON CONFLICT(id) DO NOTHING').bind(p.id,JSON.stringify(p),p.priceCents,Date.now())));rows=await database.prepare('SELECT * FROM products').all();}return rows.results.map(r=>({...JSON.parse(r.data),priceCents:r.price,stock:r.stock,active:!!r.active})).sort((a,b)=>initialProducts.findIndex(p=>p.id===a.id)-initialProducts.findIndex(p=>p.id===b.id));}
 export async function getSettings():Promise<StoreSettings>{const row=await db().prepare('SELECT value FROM settings WHERE key=?').bind('store').first<{value:string}>();const saved=row?JSON.parse(row.value):{};return{...defaultSettings,...saved,business:{...defaultSettings.business,...saved.business,email:String(runtime().STORE_CONTACT_EMAIL||saved.business?.email||'info@sistercraftandco.com')},exchange:{...defaultSettings.exchange,...saved.exchange},merchandising:{...defaultSettings.merchandising,...saved.merchandising}};}
-export function paymentReady(){const e=runtime(),mail=mailConfig();return !!(e.IYZICO_API_KEY&&e.IYZICO_SECRET_KEY&&e.IYZICO_MODE==='live'&&e.APP_ORIGIN&&e.IYZICO_VERIFIED==='true'&&mail.configured&&!mail.testMode&&e.ADMIN_BOOTSTRAP_PRIVATE!=='true');}
+// Launch is the authenticated owner's decision. Administrative readiness remains
+// visible separately; provider verification still runs for every payment.
+export function paymentReady(){const e=runtime();return !!(e.IYZICO_API_KEY&&e.IYZICO_SECRET_KEY&&e.IYZICO_MODE==='live'&&e.APP_ORIGIN&&e.ADMIN_BOOTSTRAP_PRIVATE!=='true');}
 export function legalReady(s:StoreSettings){return s.legalReviewed&&s.shippingConfigured&&Object.entries(s.business).filter(([key])=>!['mersis','chamber'].includes(key)).every(([,value])=>!!value.trim());}
-export async function publicConfig():Promise<PublicConfig>{const s=await getSettings();return {...s,paymentReady:paymentReady(),orderingReady:paymentReady()&&legalReady(s)&&s.checkoutEnabled};}
+export async function publicConfig():Promise<PublicConfig>{const s=await getSettings();return {...s,paymentReady:paymentReady(),orderingReady:paymentReady()&&s.shippingConfigured&&s.checkoutEnabled};}
 export type Session={id:string;csrf:string;cookie?:string};
 export async function session(req:Request,create=true):Promise<Session>{const raw=req.headers.get('cookie')?.match(/(?:^|;\s*)sc_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(raw){const id=await sha(raw);const row=await db().prepare('SELECT id,csrf FROM sessions WHERE id=? AND expires>?').bind(id,Date.now()).first<Session>();if(row)return row;}
 assert(create,401,'Oturumun sona erdi. Sayfayı yenileyip tekrar dene.');const token=randomToken(),id=await sha(token),csrf=randomToken();await db().prepare('INSERT INTO sessions(id,csrf,expires) VALUES(?,?,?)').bind(id,csrf,Date.now()+30*86400000).run();const secure=new URL(req.url).protocol==='https:'?'; Secure':'';return{id,csrf,cookie:`sc_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${secure}`};}

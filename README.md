@@ -156,3 +156,9 @@ Run `node scripts/test-customer-auth.mjs` for isolated real SQLite + route + KDF
 The owner-only `POST /api/admin/payment/check` uses iyzico's documented BIN metadata endpoint and a public example BIN to validate signed server requests. It never creates a payment and never marks `IYZICO_VERIFIED` true. Provider errors are reduced to numeric codes, never raw responses. The Settings page exposes this diagnostic and missing launch fields. Payment requests reject redirects and invalid mode names; returned checkout URLs reject embedded credentials and nonstandard ports. Account, order, admin and API routes disallow framing and suppress referrers.
 
 The Yurtiçi Kargo logo in `public/brands/yurtici-kargo.svg` comes from `https://www.yurticikargo.com/web_files/yurtici-kargo/assets/img/logo.svg` and is displayed to identify the owner-selected shipping carrier. No shipping API or label purchasing has been connected.
+
+### Owner-controlled launch (8 September 2026)
+
+At the owner's explicit request, the authenticated `checkoutEnabled` setting now controls launch once live iyzico credentials, application origin, configured shipping and non-bootstrap admin mode are available. This supersedes the earlier all-readiness-fields launch gate: missing legal details, live email delivery and `IYZICO_VERIFIED` remain administrative warnings and are not marked complete by opening sales. Per-payment signature, amount, order ownership, stock reservation, CSRF and refund checks remain mandatory. The email recipient guard stays enabled while using a test sender; do not imply delivery to all customers.
+
+Run `node scripts/test-launch.mjs` for launch/pausing and missing-configuration checks. For HTTP checks against the opened store, set `EXPECT_ORDERING_OPEN=true` together with `TEST_ORIGIN`. The HTTP suite sends only incomplete checkout input and never creates a payment.
