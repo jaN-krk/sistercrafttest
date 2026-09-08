@@ -51,7 +51,7 @@ export async function customerAuthRoutes(req:Request,path:string,s:Session):Prom
     // Registration remains usable when the email provider is unavailable.
     try{await db().batch([
       customerMailStatement('customer-welcome:'+id,id,address,'Aramıza hoş geldin',`Merhaba ${name},\n\nSisterCraft&Co hesabın oluşturuldu. Hesabına giriş yaparak yeni siparişlerini takip edebilirsin.\n\nBu işlemi sen yapmadıysan iletişim sayfamızdan bize ulaş.`,siteOrigin+'/hesabim','Hesabımı aç'),
-      customerMailStatement('customer-owner:'+id,id,'owner','Yeni müşteri kaydı',`Yeni bir müşteri hesabı oluşturuldu.\n\nAd: ${name}\nE-posta: ${address}\n\nBu kayıt pazarlama izni anlamına gelmez. E-posta sahipliği henüz doğrulanmamıştır.`,siteOrigin+'/yonetim','Yönetim panelini aç'),
+      customerMailStatement('customer-owner:'+id,id,'owner','Yeni müşteri kaydı',`Yeni bir müşteri hesabı oluşturuldu.\n\nAd: ${name}\nE-posta: ${address}\nKayıt tarihi: ${new Date(now).toLocaleString('tr-TR',{timeZone:'Europe/Istanbul'})}\n\nBu kayıt pazarlama izni anlamına gelmez. E-posta sahipliği henüz doğrulanmamıştır.`,siteOrigin+'/yonetim','Yönetim panelini aç'),
     ]);await drainMail(id);}catch{console.warn('Customer registration notification unavailable');}
     return json({customer:view(created)},201,authCookie);
   }

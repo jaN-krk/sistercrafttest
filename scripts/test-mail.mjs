@@ -39,13 +39,16 @@ try {
   check((await mailStatus()).counts.sent===1,'admin delivery status reflects acceptance');
   await drainMail();check(sends.length===2,'sent notification cannot repeat');
   const now=Date.now(),contract={version:'test',seller:{},terms:'Contract text'};
-  await db.prepare('INSERT INTO orders(id,number,session,status,customer,subtotal,shipping,total,consent,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind('order-test','SC-TEST','test','pending',JSON.stringify({name:'Customer',email:'customer@example.com'}),100,0,100,JSON.stringify(contract),now,now).run();
+  await db.prepare('INSERT INTO orders(id,number,session,status,customer,subtotal,shipping,total,consent,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind('order-test','SC-TEST','test','pending',JSON.stringify({name:'Customer',email:'customer@example.com',phone:'+905550000000',address:'Example Street 12',district:'Sisli',city:'Istanbul',postalCode:'34360',note:'Fragile <test>'}),100,0,100,JSON.stringify(contract),now,now).run();
   await db.prepare("UPDATE orders SET status='paid' WHERE id='order-test'").run();
   check((await db.prepare('SELECT COUNT(*) AS n FROM mail_outbox').first()).n===1,'paid order queues customer email');
   check((await db.prepare("SELECT COUNT(*) AS n FROM notification_outbox WHERE source_id='order-test'").first()).n===1,'paid order queues owner independently');
   await db.prepare("UPDATE orders SET status='paid' WHERE id='order-test'").run();
   await drainMail('order-test');
   check(sends.length===4,'duplicate paid event sends exactly one email to each recipient');
+  const ownerOrder=JSON.parse(sends[2].body);
+  check(ownerOrder.to[0]==='changed@example.com'&&ownerOrder.text.includes('+905550000000')&&ownerOrder.text.includes('Example Street 12')&&ownerOrder.text.includes('34360')&&ownerOrder.text.includes('Fragile <test>'),'owner order includes phone, full delivery address and customer note');
+  check(ownerOrder.html.includes('Fragile &lt;test&gt;'),'delivery notes are escaped in HTML');
   Object.assign(globalThis.__mailFixture,{EMAIL_PROVIDER:'mailersend',MAILERSEND_API_KEY:'test-only',EMAIL_FROM:'SisterCraft <hello@trial.example>',EMAIL_TEST_MODE:'true',EMAIL_TEST_RECIPIENTS:'owner@example.com',STORE_NOTIFICATION_EMAIL:'owner@example.com'});
   globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.mailersend.com/v1/email');sends.push(options);return new Response(null,{status:202,headers:{'x-message-id':'mailersend-test-id'}})};
   await db.prepare('INSERT INTO notification_outbox(id,source_id,kind,updated_at) VALUES(?,?,?,?)').bind('ms-test','ms-test','test',Date.now()).run();

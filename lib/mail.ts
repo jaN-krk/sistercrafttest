@@ -42,7 +42,7 @@ async function payload(row:MailRow,owner:boolean):Promise<Payload|null> {
   const label=(owner?ownerLabels:labels)[row.kind]||row.kind;
   const lines=await db().prepare('SELECT name,quantity,price FROM order_lines WHERE order_id=?').bind(order.id).all<{name:string;quantity:number;price:number}>();
   const text=[owner?`Müşteri: ${customer.name} ${customer.surname||''}`:`Merhaba ${customer.name},`,
-    `${order.number} — ${label}.`,...(owner?[`E-posta: ${customer.email}`]:[]),'',
+    `${order.number} — ${label}.`,...(owner?[`E-posta: ${customer.email}`,`Telefon: ${customer.phone||''}`,`Teslimat adresi: ${customer.address||''}`,`${customer.district||''} / ${customer.city||''} ${customer.postalCode||''}`,`Sipariş tarihi: ${new Date(order.created_at).toLocaleString('tr-TR',{timeZone:'Europe/Istanbul'})}`,...(customer.note?[`Müşteri notu: ${customer.note}`]:[])]:[]),'',
     ...lines.results.map(i=>`${i.quantity} × ${i.name}: ${money(i.quantity*i.price)}`),
     'Kargo: '+money(order.shipping),'Vergiler dahil toplam: '+money(order.total),
     ...(row.kind==='shipped'?[`Kargo: ${order.carrier}`,`Takip numarası: ${order.tracking}`]:[]),
