@@ -138,3 +138,14 @@ V4 kategori alanları için üç yeni yatay 3:2 fotoğraf oluşturuldu: tek SAGE
 - [Resend idempotency](https://resend.com/docs/dashboard/emails/idempotency-keys)
 - [Ticaret Bakanlığı mesafeli sözleşmeler](https://tuketici.ticaret.gov.tr/yayinlar/tuketici-bilgi-rehberi/mesafeli-sozlesmeler-hakkinda-bilgilendirme)
 - [KVKK aydınlatma yükümlülüğü](https://www.kvkk.gov.tr/Icerik/2033/Aydinlatma-Yukumlulugu-)
+
+
+### Customer accounts
+
+Public routes: `/giris`, `/kayit`, `/hesabim`, `/sifremi-unuttum`, `/sifre-yenile`. Customer identities live in their own tables and never grant administrator privileges. Passwords use the existing bounded scrypt profile (N=32768, r=8, p=3); new customer passwords require 15–128 characters. The HTTPS `__Host-sc_customer` cookie is HttpOnly and SameSite=Lax, bound to the browser session, with a 30-day absolute and 7-day idle limit. Password changes/reset revoke customer sessions. POSTs require the existing same-origin and CSRF checks.
+
+Orders created while signed in store `customer_id`; account access is never inferred from an email match. Guest order lookup only returns guest orders, and signing out removes access to account orders even on the originating browser. Existing guest orders remain unchanged. Checkout email must match the signed-in account. Registration stores a privacy-notice acknowledgement, not marketing consent. Email ownership is not verified by registration; never treat the customer-entered email as identity proof or automatically attach older orders.
+
+Welcome and owner registration notifications use the existing outbox. Reset links are single-use, expire after 30 minutes, and keep their token in the URL fragment rather than server URL logs; only token hashes are stored in the token table. The email payload necessarily contains the delivered link. Recovery requests are unavailable for recipients blocked by the configured test sender; the UI states this limitation. Configure an authenticated live sender to support recovery for all customers. Do not disable the email test recipient guard as a workaround. Existing maintenance clears expired customer sessions/reset records.
+
+Run `node scripts/test-customer-auth.mjs` for isolated real SQLite + route + KDF checks with mocked outbound email, alongside `node scripts/test-mail.mjs`, `node scripts/test-turso.mjs`, TypeScript and the Vercel build. No test script creates production customers or sends real emails.

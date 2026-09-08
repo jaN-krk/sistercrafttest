@@ -18,9 +18,9 @@ function check(condition, label) { assert(condition, label); checks++; }
 try {
   const db = new TursoDatabase(client);
   await Promise.all([db.ready(), db.ready(), db.ready()]);
-  check((await db.prepare('SELECT COUNT(*) AS count FROM sistercraft_migrations').first()).count === 4, 'all schema migrations applied once');
+  check((await db.prepare('SELECT COUNT(*) AS count FROM sistercraft_migrations').first()).count === 5, 'all schema migrations applied once');
   await new TursoDatabase(client).ready();
-  check((await db.prepare('SELECT COUNT(*) AS count FROM sistercraft_migrations').first()).count === 4, 'fresh process preserves migration history');
+  check((await db.prepare('SELECT COUNT(*) AS count FROM sistercraft_migrations').first()).count === 5, 'fresh process preserves migration history');
   const value = "quote' and Unicode: tütsü";
   const insert = await db.prepare('INSERT INTO settings VALUES (?, ?)').bind('test', value).run();
   check(insert.success && insert.meta.changes === 1, 'write returns D1-compatible changes');

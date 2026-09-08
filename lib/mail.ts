@@ -121,3 +121,9 @@ export async function mailStatus() {
   const config=mailConfig();
   return{configured:config.configured,provider:config.provider,testMode:config.testMode,recipient:e.STORE_NOTIFICATION_EMAIL||'',counts:Object.fromEntries(rows.results.map(r=>[r.status,r.count]))};
 }
+
+export function customerMailStatement(id:string,customerId:string,to:string,title:string,text:string,url:string,button:string){
+  const target=to==='owner'?String(runtime().STORE_NOTIFICATION_EMAIL||''):to;
+  const payload={from:mailConfig().from,_provider:mailConfig().provider,to:[target],subject:'SisterCraft&Co — '+title,text,html:emailTemplate(title,text,url,button)};
+  return db().prepare("INSERT INTO notification_outbox(id,source_id,kind,status,payload,updated_at) VALUES(?,?,?,'ready',?,?) ON CONFLICT(id) DO NOTHING").bind(id,customerId,'customer_account',JSON.stringify(payload),Date.now());
+}

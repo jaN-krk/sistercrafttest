@@ -24,7 +24,8 @@ async function derive(password:string,salt:Buffer){
   finally{hashing--;}
 }
 export async function passwordDigest(password:string){const salt=randomBytes(16);const key=await derive(password,salt);return `scrypt$32768$8$3$${Array.from(salt,b=>b.toString(16).padStart(2,'0')).join('')}$${Array.from(key,b=>b.toString(16).padStart(2,'0')).join('')}`;}
-async function verify(password:string,digest:string){const m=/^scrypt\$32768\$8\$3\$([a-f0-9]{32})\$([a-f0-9]{64})$/.exec(digest);assert(m,503,'Yönetim giriş yapılandırması tamamlanmadı.');const key=await derive(password,Buffer.from(m[1],'hex'));return timingSafeEqual(key,Buffer.from(m[2],'hex'));}
+export async function verifyPassword(password:string,digest:string){const m=/^scrypt\$32768\$8\$3\$([a-f0-9]{32})\$([a-f0-9]{64})$/.exec(digest);assert(m,503,'Giriş yapılandırması tamamlanmadı.');const key=await derive(password,Buffer.from(m[1],'hex'));return timingSafeEqual(key,Buffer.from(m[2],'hex'));}
+const verify=verifyPassword;
 
 async function account():Promise<Account>{
   let row=await db().prepare('SELECT value FROM settings WHERE key=?').bind(ACCOUNT).first<{value:string}>();

@@ -1,4 +1,5 @@
 'use client';
+import {CustomerNav} from './customer-account';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {usePathname,useRouter,useSearchParams} from 'next/navigation';
@@ -35,7 +36,7 @@ export function StoreHeader(){
         <button className="icon-button mobile-menu" aria-label={t('Menüyü aç','Open menu')} aria-expanded={menu} aria-controls={menu?'store-mobile-menu':undefined} onClick={()=>setMenu(true)}><Menu size={21}/></button>
         <Link href="/" className="wordmark">sistercraft<span>&co.</span></Link>
         <button className="header-search" onClick={()=>setSearch(true)}><Search size={19}/><span>{t('Ürün, koku veya ritüel ara…','Search products, scents or rituals…')}</span><span className="search-hint">{t('Keşfet','Discover')}</span></button>
-        <div className="header-tools"><LanguageSwitch/><button className="icon-button mobile-search" onClick={()=>setSearch(true)} aria-label={t('Ürün ara','Search products')}><Search size={20}/></button><Link className="header-account" href="/siparisler"><UserRound size={21}/><span>{t('Siparişlerim','My orders')}</span></Link><button className="header-bag" onClick={()=>setCartOpen(true)} aria-label={t('Sepetim','My bag')+` (${cart?.count??0})`}><ShoppingBag size={21}/><span>{t('Sepetim','My bag')}<small>{cart?.count?format(cart.total):t('Ritüelini seç','Find your ritual')}</small></span><b>{cart?.count??0}</b></button></div>
+        <div className="header-tools"><LanguageSwitch/><button className="icon-button mobile-search" onClick={()=>setSearch(true)} aria-label={t('Ürün ara','Search products')}><Search size={20}/></button><CustomerNav/><button className="header-bag" onClick={()=>setCartOpen(true)} aria-label={t('Sepetim','My bag')+` (${cart?.count??0})`}><ShoppingBag size={21}/><span>{t('Sepetim','My bag')}<small>{cart?.count?format(cart.total):t('Ritüelini seç','Find your ritual')}</small></span><b>{cart?.count??0}</b></button></div>
       </div>
       <nav className="commerce-nav" aria-label={t('Mağaza menüsü','Store navigation')}>
         <Link className="shop-nav-link" href="/magaza" aria-current={active('tumu')?'page':undefined}>{t('Mağaza','Shop')}<ArrowUpRight size={15}/></Link>
@@ -48,7 +49,7 @@ export function StoreHeader(){
       <SheetDescription>{t('Gününe eşlik edecek küçük ritüeller.','Little rituals for your everyday.')}</SheetDescription>
       <button className="store-menu-search" onClick={()=>{setMenu(false);setSearch(true)}}><Search size={18}/>{t('Koleksiyonda ara','Search the collection')}<ArrowRight size={16}/></button>
       <nav aria-label={t('Mobil mağaza menüsü','Mobile store navigation')} onClick={e=>{if((e.target as HTMLElement).closest('a'))setMenu(false)}}>
-        <span className="eyebrow">{t('KOLEKSİYONU KEŞFET','EXPLORE THE COLLECTION')}</span>
+        <CustomerNav mobile/><span className="eyebrow">{t('KOLEKSİYONU KEŞFET','EXPLORE THE COLLECTION')}</span>
         {categories.map(c=><Link key={c.id} href={'/magaza'+(c.id==='tumu'?'':'?kategori='+c.id)} aria-current={active(c.id)?'page':undefined}>{c.id==='tumu'?t('Tüm koleksiyon','All products'):t(c.name)}<ArrowUpRight size={18}/></Link>)}
         <span className="eyebrow store-menu-divider">{t('SISTERCRAFT DÜNYASI','THE SISTERCRAFT WORLD')}</span>
         {[['hikayemiz','Hikâyemiz','Our story'],['gunluk','Ritüel günlüğü','Journal'],['siparisler','Siparişlerim','My orders'],['sss','Yardım ve destek','Help & support'],['iletisim','İletişim','Contact']].map(([url,tr,en])=><Link key={url} href={'/'+url} aria-current={path==='/'+url?'page':undefined}>{t(tr,en)}<ArrowUpRight size={16}/></Link>)}

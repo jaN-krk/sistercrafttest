@@ -1,0 +1,73 @@
+// Real SQLite, route handlers and scrypt; only outbound email is mocked.
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {createClient} from '@libsql/client';
+import {readFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {createHash} from 'node:crypto';
+
+const compiled=await build({stdin:{contents:"export {GET,POST} from './app/api/[...path]/route'; export {TursoDatabase} from './lib/turso-adapter'; export {passwordDigest} from './lib/admin-auth';",resolveDir:process.cwd()},bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'fixture',setup(b){
+  b.onResolve({filter:/^@store\/runtime$/},()=>({path:'runtime',namespace:'fixture'}));
+  b.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export const env=globalThis.__customerFixture;',loader:'js'}));
+  b.onResolve({filter:/\.sql\?raw$/},a=>({path:resolve(a.resolveDir,a.path.slice(0,-4)),namespace:'sql'}));
+  b.onLoad({filter:/.*/,namespace:'sql'},async a=>({contents:await readFile(a.path,'utf8'),loader:'text'}));
+}}]});
+const origin='https://store.example';
+globalThis.__customerFixture={APP_ORIGIN:origin,RESEND_API_KEY:'fixture',EMAIL_FROM:'Store <notice@example.com>',STORE_NOTIFICATION_EMAIL:'owner@example.com'};
+const {GET,POST,TursoDatabase,passwordDigest}=await import('data:text/javascript;base64,'+Buffer.from(compiled.outputFiles[0].text).toString('base64'));
+const client=createClient({url:':memory:'}),db=new TursoDatabase(client);globalThis.__customerFixture.DB=db;
+const outbound=[],originalFetch=globalThis.fetch;
+globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.resend.com/emails');outbound.push(JSON.parse(options.body));return Response.json({id:'fixture-'+outbound.length});};
+let checks=0;const ok=(value,label)=>{assert(value,label);checks++};
+const hash=v=>createHash('sha256').update(v).digest('hex');
+async function browser(ip){const jar=new Map();let csrf='';return {jar,async call(path,data,overrides={}){const req=new Request(origin+'/api/'+path,{method:data===undefined?'GET':'POST',headers:{Cookie:[...jar].map(([k,v])=>k+'='+v).join('; '),'cf-connecting-ip':ip,...(data===undefined?{}:{Origin:origin,'Content-Type':'application/json','x-csrf-token':csrf}),...overrides},body:data===undefined?undefined:JSON.stringify(data)});const r=await(data===undefined?GET:POST)(req);for(const value of r.headers.getSetCookie()){const [key,...parts]=value.split(';')[0].split('=');jar.set(key,parts.join('='));}const result=await r.json();if(result.csrf)csrf=result.csrf;return{status:r.status,data:result,cookie:r.headers.get('set-cookie')};}}}
+const secret='Fixture customer password 2026!',next='Replacement customer password 2026!';
+try{
+  const a=await browser('192.0.2.1'),b=await browser('192.0.2.2'),guest=await browser('192.0.2.3');
+  for(const c of [a,b,guest])ok((await c.call('account')).data.customer===null,'anonymous account bootstraps safely');
+  ok((await a.call('account/register',{name:'Test Customer',email:'a@example.com',password:secret,privacy:true},{Origin:'https://foreign.example'})).status===403,'cross-origin registration blocked');
+  ok((await a.call('account/register',{name:'Test Customer',email:'a@example.com',password:secret,privacy:true},{'x-csrf-token':'wrong'})).status===403,'registration CSRF enforced');
+  ok((await a.call('account/register',{name:'Test Customer',email:'a@example.com',password:'short',privacy:true})).status===400,'short passwords rejected');
+  ok((await a.call('account/register',{name:'Test Customer',email:'a@example.com',password:secret,privacy:false})).status===400,'privacy acknowledgement required');
+  const register=await a.call('account/register',{name:'Test Customer',email:'A@example.com',password:secret,privacy:true,role:'admin'});
+  ok(register.status===201&&register.data.customer.email==='a@example.com','registration succeeds and normalizes address');
+  ok(register.cookie.includes('__Host-sc_customer=')&&register.cookie.includes('Secure')&&register.cookie.includes('HttpOnly'),'secure independent customer cookie');
+  const aid=register.data.customer.id;
+  ok(!JSON.stringify(register.data).includes('digest')&&!JSON.stringify(register.data).includes(secret),'response contains no credentials');
+  const row=await db.prepare('SELECT * FROM customers WHERE id=?').bind(aid).first();ok(row.digest.startsWith('scrypt$')&&!row.digest.includes(secret),'real password hashing');
+  ok(outbound.some(m=>m.to[0]==='owner@example.com'&&m.subject.includes('Yeni müşteri'))&&outbound.some(m=>m.to[0]==='a@example.com'),'welcome and owner notification recipients');
+  ok((await b.call('account/register',{name:'Other',email:'a@example.com',password:next,privacy:true})).status===409,'duplicate cannot overwrite account');
+  const bid=(await b.call('account/register',{name:'Second Customer',email:'b@example.com',password:secret,privacy:true})).data.customer.id;
+  for(const path of ['admin','admin/customers','admin/analytics','admin/auth/sessions'])ok((await a.call(path)).status===401,'customer cannot access '+path);
+  const atoken=a.jar.get('__Host-sc_customer'),originalB=b.jar.get('__Host-sc_customer');b.jar.set('__Host-sc_customer',atoken);ok((await b.call('account')).data.customer===null,'stolen customer token needs original browser');b.jar.set('__Host-sc_customer',originalB);
+  const now=Date.now(),browserA=hash(a.jar.get('sc_session')),browserB=hash(b.jar.get('sc_session'));
+  for(const [id,owner,session,email] of [['a-order',aid,browserA,'a@example.com'],['b-order',bid,browserB,'b@example.com'],['old-guest',null,'elsewhere','a@example.com']])await db.prepare('INSERT INTO orders(id,number,session,customer_id,status,customer,subtotal,shipping,total,consent,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,'SC-2026-'+id,session,owner,'paid',JSON.stringify({name:'Fixture',email}),100,0,100,'{}',now,now).run();
+  const orders=(await a.call('orders')).data.orders;ok(orders.length===1&&orders[0].number==='SC-2026-a-order','only own explicit order ID visible; matching guest email not linked');
+  ok((await a.call('orders/reconcile',{number:'SC-2026-b-order'})).status===404,'another customer order mutation rejected');
+  ok((await guest.call('orders/lookup',{number:'SC-2026-a-order',email:'a@example.com'})).status===404,'account orders not exposed by guest lookup');
+  const a2=await browser('192.0.2.4');await a2.call('account');ok((await a2.call('account/login',{email:'a@example.com',password:secret})).status===200,'another device login succeeds');
+  ok((await a2.call('orders')).data.orders.length===1,'account orders survive device change');
+  await a.call('account/logout',{});ok((await a.call('orders')).data.orders.length===0,'logout hides account orders even with original guest cookie');a.jar.set('__Host-sc_customer',atoken);ok((await a.call('account')).data.customer===null,'logged-out token replay rejected');
+  const wrong=await a.call('account/login',{email:'a@example.com',password:'wrong'}),missing=await a.call('account/login',{email:'unknown@example.com',password:'wrong'});ok(wrong.status===401&&wrong.data.error===missing.data.error,'generic login failure');
+  ok((await a2.call('account/password',{currentPassword:'wrong',password:next})).status===400,'password change requires current password');
+  ok((await a2.call('account/password',{currentPassword:secret,password:next})).status===200,'password change succeeds');
+  ok((await a2.call('account')).data.customer===null,'password change revokes current session');
+  ok((await a.call('account/login',{email:'a@example.com',password:secret})).status===401,'old password rejected');
+  ok((await a.call('account/login',{email:'a@example.com',password:next})).status===200,'new password works');
+  const requestReset=await a.call('account/forgot',{email:'a@example.com'});ok(requestReset.status===200&&!JSON.stringify(requestReset.data).includes('token'),'reset API never exposes token');
+  const resetMail=outbound.findLast(m=>m.subject.includes('Şifreni yenile')),token=/#token=([a-f0-9]{64})/.exec(resetMail.text)[1];
+  ok((await db.prepare('SELECT id FROM customer_reset_tokens WHERE id=?').bind(hash(token)).first())!==null,'reset token stored by hash');
+  const reset=await guest.call('account/reset',{token,password:secret});ok(reset.status===200,'email reset proof changes password');
+  ok((await guest.call('account/reset',{token,password:next})).status===400,'reset link cannot be replayed');
+  ok((await a.call('account')).data.customer===null,'reset invalidates all old sessions');
+  await a.call('account/login',{email:'a@example.com',password:secret});
+  await a.call('account/forgot',{email:'a@example.com'});const expired=/#token=([a-f0-9]{64})/.exec(outbound.findLast(m=>m.subject.includes('Şifreni yenile')).text)[1];await db.prepare('UPDATE customer_reset_tokens SET expires=?').bind(Date.now()-1).run();
+  ok((await guest.call('account/reset',{token:expired,password:next})).status===400,'expired token rejected');ok((await a.call('account')).data.customer?.id===aid,'expired reset cannot log out owner');
+  globalThis.__customerFixture.EMAIL_TEST_MODE='true';globalThis.__customerFixture.EMAIL_TEST_RECIPIENTS='owner@example.com';
+  ok((await a.call('account/forgot',{email:'a@example.com'})).status===503,'sandbox restriction explicit, no fake success');
+  ok((await a.call('account')).data.emailReady===false,'UI receives mail readiness');
+  await db.prepare('UPDATE customer_sessions SET last_seen=? WHERE customer_id=?').bind(Date.now()-8*86400000,aid).run();ok((await a.call('account')).data.customer===null,'idle session expires');
+  const noisy=await browser('192.0.2.8');await noisy.call('account');for(let i=0;i<8;i++)await noisy.call('account/login',{email:'nobody@example.com',password:'bad'});ok((await noisy.call('account/login',{email:'nobody@example.com',password:'bad'})).status===429,'brute force bounded');
+  Object.assign(globalThis.__customerFixture,{ADMIN_LOGIN_USER:'fixtureadmin',ADMIN_PASSWORD_HASH:await passwordDigest(secret)});const owner=await browser('192.0.2.9');await owner.call('account');await owner.call('admin/auth/login',{username:'fixtureadmin',password:secret});const directory=await owner.call('admin/customers');ok(directory.status===200&&directory.data.customers.some(c=>c.email==='b@example.com'&&c.registeredAt),'owner customer directory includes accounts');
+  console.log(JSON.stringify({ok:true,checks,scope:'Real SQLite and route handlers; KDF, CSRF, customer/admin isolation, order ownership, notifications, reset replay/expiry, revocation and rate limits; outbound email mocked'}));
+}finally{client.close();globalThis.fetch=originalFetch;}

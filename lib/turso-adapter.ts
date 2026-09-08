@@ -3,12 +3,14 @@ import schema from '../drizzle/0000_overjoyed_sinister_six.sql?raw';
 import refunds from '../drizzle/0001_windy_banshee.sql?raw';
 import outbox from '../drizzle/0002_sad_shockwave.sql?raw';
 import notifications from '../drizzle/0003_tough_iron_monger.sql?raw';
+import customers from '../drizzle/0004_groovy_riptide.sql?raw';
 
 const migrations = [
   ['0000_overjoyed_sinister_six', schema],
   ['0001_windy_banshee', refunds],
   ['0002_sad_shockwave', outbox],
   ['0003_tough_iron_monger', notifications],
+  ['0004_groovy_riptide', customers],
 ] as const;
 
 function result<T>(value: ResultSet): D1Result<T> {
