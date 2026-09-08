@@ -8,6 +8,12 @@ Ana vitrin kenardan kenara uzanır; masaüstünde üst duyuru ve menüden kalan 
 
 Mağaza gerçek Turso veritabanı kullanır ve sahibinin talebiyle siparişe açıktır. Gerçek iyzico anahtarları, para çekmeyen BIN sorgusuyla doğrulanmıştır; gerçek ödeme ve iade uçtan uca henüz test edilmemiştir. Resmî satıcı unvanı, tam adres ve diğer eksik ticari bilgiler yönetimde ayrı uyarılar olarak gösterilir; bu belgelerin tamamlandığı varsayılmaz. Fiyat ve stokların güncel kaynağı yönetim panelidir.
 
+## Ürün XML bağlantısı
+
+Eski bağlantı korunur: `https://sistercraftandco.com/wp-content/uploads/iyzico-google-products/google-products.xml`. WordPress kurulumu gerekmez; mevcut uygulamanın dinamik route handler'ı Google Merchant RSS 2.0 biçiminde XML üretir. Veri kaynağı güncel mağaza veritabanıdır. Aktif ürünlerin kimliği, Türkçe adı/açıklaması, mağaza ürün bağlantısı, HTTPS görselleri, TRY fiyatı, stok durumu, marka/kategori ve ürün bazındaki kargo bedeli yayımlanır. Pasif ürünler dışarıda kalır; stokta olmayan ürünler veya siparişe kapalı mağaza `out_of_stock` gösterir. Barkod, KDV oranı veya indirim uydurulmaz. Müşteri, sipariş, şirket ve API anahtarı bilgileri dışarı aktarılmaz.
+
+Akış sunucuda en fazla 60 saniye önbelleklenebilir; iyzico'nun okuma sıklığı ayrıca kendi sistemine bağlıdır. Veritabanı veya ürün doğrulama hatasında boş katalog yerine 503 döner. XML biçimi `node scripts/test-product-feed.mjs` ile bağımsız XML ayrıştırıcısından geçirilerek test edilir. Eski URL'nin isminden Google feed biçimi çıkarılmıştır; iyzico panelindeki içe aktarma/onay sonucu ayrıca doğrulanmalıdır.
+
 ## Vercel ve Turso
 
 Vercel için `npm run build:vercel`, Vinext uygulamasını Nitro Node sunucusu ve Build Output API biçiminde derler. `proxy.ts` güvenlik başlıklarını uygulamanın içinde işler. Yerel `npm run dev` Cloudflare D1/R2 ile çalışır.
